@@ -1,4 +1,4 @@
-<!-- Deployment v3 -->
+<!-- deployement v4   -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -60,6 +60,18 @@
             cursor: nwse-resize;
             background-image: linear-gradient(135deg, transparent 0%, transparent 50%, #6b7280 50%, #6b7280 100%);
         }
+        .host-override-btn {
+            display: none;
+        }
+        .edit-mode .host-override-btn {
+            display: inline-block;
+        }
+        .word-overridden-approve {
+            background-color: #dcfce7 !important; /* green-100 */
+        }
+        .word-overridden-reject {
+            background-color: #fee2e2 !important; /* red-100 */
+        }
     </style>
 </head>
 <body class="bg-gray-100 text-gray-800 flex items-center justify-center min-h-screen">
@@ -73,7 +85,7 @@
                  <div class="grid grid-cols-2 gap-4">
                     <div>
                         <label for="timer-setting" class="font-semibold text-gray-600">Time (s):</label>
-                        <input type="number" id="timer-setting" value="120" min="30" max="300" class="w-full mt-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500">
+                        <input type="number" id="timer-setting" value="60" min="30" max="300" class="w-full mt-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500">
                     </div>
                     <div>
                         <label for="min-word-length" class="font-semibold text-gray-600">Min Length:</label>
@@ -84,8 +96,8 @@
                     <label for="grid-size" class="font-semibold text-gray-600">Grid Size:</label>
                     <select id="grid-size" class="w-full mt-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500">
                         <option value="3">3x3</option>
-                        <option value="4">4x4</option>
-                        <option value="5" selected>5x5</option>
+                        <option value="4" selected>4x4</option>
+                        <option value="5">5x5</option>
                         <option value="6">6x6</option>
                         <option value="7">7x7</option>
                     </select>
@@ -107,6 +119,7 @@
                      <input type="text" id="join-game-id-input" placeholder="Enter Game ID" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 transition">
                      <button id="join-game-btn" class="bg-gray-600 text-white font-bold py-3 px-4 rounded-lg hover:bg-gray-700 transition-colors duration-300 shadow-md">Join</button>
                  </div>
+                 <div id="join-error-msg" class="text-red-500 text-sm mt-2 hidden"></div>
             </div>
         </div>
 
@@ -158,7 +171,13 @@
     <!-- Modals -->
     <div id="scoring-modal" class="modal hidden" style="width: 800px; height: 600px; top: 15%; left: 25%; z-index: 50;">
         <div id="scoring-modal-header" class="modal-header p-4 flex justify-between items-center"><h2 class="text-2xl font-bold text-center flex-grow">Round Over!</h2><button id="close-scoring-modal-btn" class="text-2xl font-bold">&times;</button></div>
-        <div id="scoring-modal-content" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 p-6 overflow-y-auto h-[calc(100%-60px)]"></div>
+        <div class="p-6 h-[calc(100%-60px)] flex flex-col">
+            <div id="scoring-host-controls" class="hidden mb-4 p-3 border-b flex justify-between items-center bg-gray-50 rounded-lg">
+                 <label class="flex items-center justify-center gap-2 font-semibold"><input type="checkbox" id="edit-scores-toggle" class="h-5 w-5 rounded"> Edit Scores (Host)</label>
+                 <button id="apply-overrides-btn" class="hidden bg-blue-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-blue-700">Apply & Recalculate</button>
+            </div>
+            <div id="scoring-modal-content" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 overflow-y-auto flex-grow"></div>
+        </div>
         <div class="resize-handle"></div>
     </div>
     <div id="standings-modal" class="modal hidden" style="width: 900px; height: 700px; top: 10%; left: 20%; z-index: 50;">
@@ -178,6 +197,7 @@
         import { getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, doc, getDoc, setDoc, updateDoc, onSnapshot, collection, getDocs, writeBatch } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
+        // Use environment variables for Firebase config and App ID for security and flexibility.
         const firebaseConfig = {
           apiKey: "AIzaSyD_CHO-e69XJJh8NoD6fm4ih1YryuRCWeY",
           authDomain: "word-grid-game-live.firebaseapp.com",
@@ -187,36 +207,59 @@
           appId: "1:216890772517:web:71d2d55f4adf295db043cc"
         };
         const appId = 'word-game';
+        
         const app = initializeApp(firebaseConfig);
         const db = getFirestore(app);
         const auth = getAuth(app);
         
+        // Game constants
         const DICE = ['A','A','E','E','G','N', 'A','B','B','J','O','O', 'A','C','H','O','P','S', 'A','F','F','K','P','S','A','O','O','T','T','W', 'C','I','M','O','T','U', 'D','E','I','L','R','X', 'D','E','L','R','V','Y','D','I','S','T','T','Y', 'E','E','G','H','N','W', 'E','E','I','N','S','U', 'E','H','R','T','V','W','E','I','O','S','S','T', 'E','L','R','T','T','Y', 'H','I','M','N','U','Q', 'H','L','N','N','R','Z'];
+        
+        // State variables
         let userId = null, gameId = null, gameData = {}, playerWords = {}, currentWord = [], gameUnsubscribe = null, wordsUnsubscribe = {}, timerInterval = null;
         let highestZ = 60;
+        let validWordsCache = []; // Cache valid words for the current round
+        let localOverrides = {}; // For host to stage changes before applying
 
+        // DOM element references
         const el = {
             lobbyView: document.getElementById('lobby-view'), gameView: document.getElementById('game-view'), leftPanel: document.getElementById('left-panel'),
             rightPanel: document.getElementById('right-panel'), createGameBtn: document.getElementById('create-game-btn'), joinGameBtn: document.getElementById('join-game-btn'),
-            joinGameIdInput: document.getElementById('join-game-id-input'), gameInfoControls: document.getElementById('game-info-controls'), timerSetting: document.getElementById('timer-setting'),
-            minWordLength: document.getElementById('min-word-length'), gridSize: document.getElementById('grid-size'), filterInput: document.getElementById('filter-input'),
-            addFilterBtn: document.getElementById('add-filter-btn'), filterTagsContainer: document.getElementById('filter-tags-container'),
+            joinGameIdInput: document.getElementById('join-game-id-input'), joinErrorMsg: document.getElementById('join-error-msg'), gameInfoControls: document.getElementById('game-info-controls'), 
+            timerSetting: document.getElementById('timer-setting'), minWordLength: document.getElementById('min-word-length'), gridSize: document.getElementById('grid-size'), 
+            filterInput: document.getElementById('filter-input'), addFilterBtn: document.getElementById('add-filter-btn'), filterTagsContainer: document.getElementById('filter-tags-container'),
             leaderboard: document.getElementById('leaderboard'), leaderboardSummary: document.getElementById('leaderboard-summary'), userIdDisplay: document.getElementById('user-id-display'),
             timerDisplay: document.getElementById('timer-display'), gameStatusDisplay: document.getElementById('game-status-display'), gameGrid: document.getElementById('game-grid'),
             currentWordDisplay: document.getElementById('current-word-display'), submitWordBtn: document.getElementById('submit-word-btn'), clearWordBtn: document.getElementById('clear-word-btn'),
-            myWordsList: document.getElementById('my-words-list'), scoringModal: document.getElementById('scoring-modal'),
-            scoringModalContent: document.getElementById('scoring-modal-content'), closeScoringModalBtn: document.getElementById('close-scoring-modal-btn'),
-            dictionaryModal: document.getElementById('dictionary-modal'), dictionaryWord: document.getElementById('dictionary-word'),
-            dictionaryDefinition: document.getElementById('dictionary-definition'), closeDictionaryBtn: document.getElementById('close-dictionary-btn'),
-            showPanelsBtn: document.getElementById('show-panels-btn'), standingsModal: document.getElementById('standings-modal'),
-            standingsModalContent: document.getElementById('standings-modal-content'), closeStandingsModalBtn: document.getElementById('close-standings-modal-btn'),
+            myWordsList: document.getElementById('my-words-list'), scoringModal: document.getElementById('scoring-modal'), scoringHostControls: document.getElementById('scoring-host-controls'),
+            editScoresToggle: document.getElementById('edit-scores-toggle'), scoringModalContent: document.getElementById('scoring-modal-content'), 
+            closeScoringModalBtn: document.getElementById('close-scoring-modal-btn'), dictionaryModal: document.getElementById('dictionary-modal'), 
+            dictionaryWord: document.getElementById('dictionary-word'), dictionaryDefinition: document.getElementById('dictionary-definition'), 
+            closeDictionaryBtn: document.getElementById('close-dictionary-btn'), showPanelsBtn: document.getElementById('show-panels-btn'), 
+            standingsModal: document.getElementById('standings-modal'), standingsModalContent: document.getElementById('standings-modal-content'), 
+            closeStandingsModalBtn: document.getElementById('close-standings-modal-btn'),
+            applyOverridesBtn: document.getElementById('apply-overrides-btn'),
         };
 
+        // --- Authentication ---
         onAuthStateChanged(auth, async (user) => {
-            if (user) { userId = user.uid; el.userIdDisplay.textContent = userId; } 
-            else { try { if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) await signInWithCustomToken(auth, __initial_auth_token); else await signInAnonymously(auth); } catch(error) { console.error("Sign-In Error:", error); }}
+            if (user) { 
+                userId = user.uid; 
+                el.userIdDisplay.textContent = userId; 
+            } else { 
+                try { 
+                    if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                        await signInWithCustomToken(auth, __initial_auth_token);
+                    } else {
+                        await signInAnonymously(auth); 
+                    }
+                } catch(error) { 
+                    console.error("Sign-In Error:", error); 
+                }
+            }
         });
         
+        // --- Event Listeners ---
         el.createGameBtn.addEventListener('click', handleCreateGame);
         el.joinGameBtn.addEventListener('click', handleJoinGame);
         el.submitWordBtn.addEventListener('click', handleSubmitWord);
@@ -228,16 +271,38 @@
         el.showPanelsBtn.addEventListener('click', togglePanels);
         el.leaderboardSummary.addEventListener('click', showStandingsModal);
         el.closeStandingsModalBtn.addEventListener('click', () => el.standingsModal.classList.add('hidden'));
+        el.editScoresToggle.addEventListener('change', (e) => {
+            el.scoringModalContent.classList.toggle('edit-mode', e.target.checked);
+            el.applyOverridesBtn.classList.toggle('hidden', !e.target.checked);
+        });
+        el.applyOverridesBtn.addEventListener('click', handleApplyOverrides);
         window.addEventListener('keydown', handleKeyDown);
         
-        // Setup all modals
+        // --- Modal Setup ---
         setupModal(el.scoringModal);
         setupModal(el.standingsModal);
         setupModal(el.dictionaryModal);
         
-        function createFilterTag(text) { const tag = document.createElement('div'); tag.className = "flex items-center bg-indigo-100 text-indigo-700 text-sm font-semibold px-3 py-1 rounded-full"; tag.textContent = text; const removeBtn = document.createElement('button'); removeBtn.className = "ml-2 text-indigo-500 hover:text-indigo-700 font-bold"; removeBtn.innerHTML = '&times;'; removeBtn.onclick = () => tag.remove(); tag.appendChild(removeBtn); el.filterTagsContainer.appendChild(tag); }
-        function addFilterTag() { const text = el.filterInput.value.trim().toLowerCase(); if (text) { createFilterTag(text); el.filterInput.value = ''; }}
-        ['noun', 'verb', 'no plurals'].forEach(createFilterTag);
+        // --- Lobby Functions ---
+        function createFilterTag(text) { 
+            const tag = document.createElement('div'); 
+            tag.className = "flex items-center bg-indigo-100 text-indigo-700 text-sm font-semibold px-3 py-1 rounded-full"; 
+            tag.textContent = text; 
+            const removeBtn = document.createElement('button'); 
+            removeBtn.className = "ml-2 text-indigo-500 hover:text-indigo-700 font-bold"; 
+            removeBtn.innerHTML = '&times;'; 
+            removeBtn.onclick = () => tag.remove(); 
+            tag.appendChild(removeBtn); 
+            el.filterTagsContainer.appendChild(tag); 
+        }
+
+        function addFilterTag() { 
+            const text = el.filterInput.value.trim().toLowerCase(); 
+            if (text) { createFilterTag(text); el.filterInput.value = ''; }
+        }
+
+        // Add default filters
+        ['noun', 'verb', 'no plurals', 'adjective', 'adverb'].forEach(createFilterTag);
 
         async function handleCreateGame() {
             if (!userId) return;
@@ -245,53 +310,175 @@
             const gameRef = doc(db, `artifacts/${appId}/public/data/games`, newGameId);
             const playerInfo = { name: `Player ${userId.substring(0, 4)}`, score: 0, roundScore: 0, history: {} };
             const filters = Array.from(el.filterTagsContainer.children).map(tag => tag.firstChild.textContent.trim());
-            try { await setDoc(gameRef, { createdAt: new Date(), hostId: userId, status: 'waiting', timerDuration: parseInt(el.timerSetting.value, 10), minWordLength: parseInt(el.minWordLength.value, 10), gridSize: parseInt(el.gridSize.value, 10), wordFilters: filters, grid: '[]', players: { [userId]: playerInfo }, round: 0 }); await joinGame(newGameId); } catch (error) { console.error("Error creating game:", error); }
+            try { 
+                await setDoc(gameRef, { 
+                    createdAt: new Date(), 
+                    hostId: userId, 
+                    status: 'waiting', 
+                    timerDuration: parseInt(el.timerSetting.value, 10), 
+                    minWordLength: parseInt(el.minWordLength.value, 10), 
+                    gridSize: parseInt(el.gridSize.value, 10), 
+                    wordFilters: filters, 
+                    grid: '[]', 
+                    players: { [userId]: playerInfo }, 
+                    round: 0, 
+                    roundOverrides: {} 
+                }); 
+                await joinGame(newGameId); 
+            } catch (error) { console.error("Error creating game:", error); }
         }
         
-        function handleJoinGame() { const gameIdToJoin = el.joinGameIdInput.value.trim(); if (gameIdToJoin) joinGame(gameIdToJoin); }
+        function handleJoinGame() { 
+            el.joinErrorMsg.classList.add('hidden'); 
+            const gameIdToJoin = el.joinGameIdInput.value.trim(); 
+            if (gameIdToJoin) joinGame(gameIdToJoin); 
+        }
 
         async function joinGame(id) {
             if (!userId) return;
-            if (gameUnsubscribe) gameUnsubscribe();
-            Object.values(wordsUnsubscribe).forEach(unsub => unsub());
-            wordsUnsubscribe = {}; gameId = id;
-            const gameRef = doc(db, `artifacts/${appId}/public/data/games`, gameId);
+            const gameRef = doc(db, `artifacts/${appId}/public/data/games`, id);
             try {
                 const gameSnap = await getDoc(gameRef);
-                if (!gameSnap.exists()) { alert("Game not found!"); return; }
+                if (!gameSnap.exists()) { 
+                    el.joinErrorMsg.textContent = "Game not found. Please check the ID."; 
+                    el.joinErrorMsg.classList.remove('hidden'); 
+                    return; 
+                }
                 const game = gameSnap.data();
-                if (!game.players[userId]) { const playerInfo = { name: `Player ${userId.substring(0, 4)}`, score: 0, roundScore: 0, history: {} }; await updateDoc(gameRef, { [`players.${userId}`]: playerInfo }); }
-                el.lobbyView.classList.add('hidden'); el.gameView.classList.remove('hidden'); el.gameView.classList.add('flex');
-                gameUnsubscribe = onSnapshot(gameRef, (doc) => { gameData = doc.data(); if (gameData) { renderGame(); listenForPlayerWords(); }});
-            } catch (error) { console.error("Error joining game:", error); }
+
+                if (gameUnsubscribe) gameUnsubscribe();
+                Object.values(wordsUnsubscribe).forEach(unsub => unsub());
+                wordsUnsubscribe = {}; 
+                
+                gameId = id;
+
+                if (!game.players[userId]) { 
+                    const playerInfo = { name: `Player ${userId.substring(0, 4)}`, score: 0, roundScore: 0, history: {} }; 
+                    await updateDoc(gameRef, { [`players.${userId}`]: playerInfo }); 
+                }
+
+                el.lobbyView.classList.add('hidden'); 
+                el.gameView.classList.remove('hidden'); 
+                el.gameView.classList.add('flex');
+                gameUnsubscribe = onSnapshot(gameRef, (doc) => { 
+                    const oldStatus = gameData?.status;
+                    const oldPlayersJSON = JSON.stringify(gameData?.players);
+                    gameData = doc.data(); 
+
+                    if (gameData) { 
+                        renderGame(); 
+                        listenForPlayerWords(); 
+                        
+                        // Handle state transitions
+                        if (gameData.status === 'scoring') {
+                           if (oldStatus !== 'scoring' || (!el.scoringModal.classList.contains('hidden') && oldPlayersJSON !== JSON.stringify(gameData.players))) {
+                                showScoringModal();
+                           }
+                        }
+
+                        if (gameData.status === 'playing' && oldStatus !== 'playing') {
+                            clearCurrentWord();
+                            el.myWordsList.innerHTML = ''; // Clear submitted words list UI
+                        }
+                    }
+                });
+            } catch (error) { 
+                console.error("Error joining game:", error); 
+                el.joinErrorMsg.textContent = "An error occurred while joining the game."; 
+                el.joinErrorMsg.classList.remove('hidden'); 
+            }
         }
         
+        // --- Host Controls ---
         async function handleStartGame() {
             if (!gameId || gameData.hostId !== userId) return;
             const currentRound = (gameData.round || 0) + 1;
             const size = gameData.gridSize;
             const shuffledDice = DICE.sort(() => 0.5 - Math.random());
             const newGrid = Array.from({ length: size }, (_, r) => Array.from({ length: size }, (_, c) => shuffledDice[(r * size + c) % shuffledDice.length]));
+            
             const updatedPlayers = { ...gameData.players };
             Object.keys(updatedPlayers).forEach(pid => { updatedPlayers[pid].roundScore = 0; });
+            
             const batch = writeBatch(db);
-            Object.keys(gameData.players).forEach(pid => { const wordsRef = doc(db, `artifacts/${appId}/public/data/games/${gameId}/playerWords`, pid); batch.set(wordsRef, { [currentRound]: [] }, { merge: true }); });
+            Object.keys(gameData.players).forEach(pid => { 
+                const wordsRef = doc(db, `artifacts/${appId}/public/data/games/${gameId}/playerWords`, pid); 
+                batch.set(wordsRef, { [currentRound]: [] }, { merge: true }); 
+            });
             await batch.commit();
-            await updateDoc(doc(db, `artifacts/${appId}/public/data/games`, gameId), { status: 'playing', grid: JSON.stringify(newGrid), round: currentRound, players: updatedPlayers, timer: gameData.timerDuration });
+
+            await updateDoc(doc(db, `artifacts/${appId}/public/data/games`, gameId), { 
+                status: 'playing', 
+                grid: JSON.stringify(newGrid), 
+                round: currentRound, 
+                players: updatedPlayers, 
+                timer: gameData.timerDuration, 
+                [`roundOverrides.${currentRound}`]: {} 
+            });
         }
         
-        async function handleRestartGame() { if (!gameId || gameData.hostId !== userId) return; location.reload(); }
-        async function handlePauseResumeGame() { if (!gameId || gameData.hostId !== userId) return; const newStatus = gameData.status === 'playing' ? 'paused' : 'playing'; await updateDoc(doc(db, `artifacts/${appId}/public/data/games`, gameId), { status: newStatus });}
+        async function handleRestartGame() { 
+            if (!gameId || gameData.hostId !== userId) return; 
+            location.reload(); 
+        }
+
+        async function handlePauseResumeGame() { 
+            if (!gameId || gameData.hostId !== userId) return; 
+            const newStatus = gameData.status === 'playing' ? 'paused' : 'playing'; 
+            await updateDoc(doc(db, `artifacts/${appId}/public/data/games`, gameId), { status: newStatus });
+        }
+
+        async function handleApplyOverrides() {
+            if (userId !== gameData.hostId || Object.keys(localOverrides).length === 0) return;
+            
+            el.applyOverridesBtn.disabled = true;
+            el.applyOverridesBtn.textContent = 'Applying...';
+            
+            const gameRef = doc(db, `artifacts/${appId}/public/data/games`, gameId);
+            const currentOverrides = gameData.roundOverrides?.[gameData.round] || {};
+            const newOverrides = { ...currentOverrides, ...localOverrides };
+            
+            await updateDoc(gameRef, { [`roundOverrides.${gameData.round}`]: newOverrides });
+            
+            // Recalculate scores, which will update the DB and trigger the onSnapshot listener to refresh the modal.
+            await calculateScores();
+            
+            localOverrides = {};
+            el.editScoresToggle.checked = false;
+            el.scoringModalContent.classList.remove('edit-mode');
+            el.applyOverridesBtn.classList.add('hidden');
+            el.applyOverridesBtn.disabled = false;
+            el.applyOverridesBtn.textContent = 'Apply & Recalculate';
+        }
         
+        // --- Gameplay Functions ---
         async function handleSubmitWord() {
             const word = currentWord.map(w => w.letter).join('').toUpperCase();
-            if (word.length < gameData.minWordLength) { alert(`Word must be at least ${gameData.minWordLength} letters long.`); return; }
+            if (word.length < gameData.minWordLength) { 
+                alert(`Word must be at least ${gameData.minWordLength} letters long.`); 
+                return; 
+            }
             const myCurrentWords = playerWords[userId]?.[gameData.round] || [];
-            if (myCurrentWords.includes(word)) { alert("You have already submitted this word."); clearCurrentWord(); return; }
-            try { const wordsRef = doc(db, `artifacts/${appId}/public/data/games/${gameId}/playerWords`, userId); await setDoc(wordsRef, { [gameData.round]: [...myCurrentWords, word] }, { merge: true }); clearCurrentWord(); } catch(error) { console.error("Error submitting word:", error); }
+            if (myCurrentWords.includes(word)) { 
+                alert("You have already submitted this word."); 
+                clearCurrentWord(); 
+                return; 
+            }
+            try { 
+                const wordsRef = doc(db, `artifacts/${appId}/public/data/games/${gameId}/playerWords`, userId); 
+                await setDoc(wordsRef, { [gameData.round]: [...myCurrentWords, word] }, { merge: true }); 
+                clearCurrentWord(); 
+            } catch(error) { 
+                console.error("Error submitting word:", error); 
+            }
         }
         
-        function handleDieClick(dieEl, letter, row, col) { if (!dieEl || currentWord.some(d => d.row === row && d.col === col)) return; currentWord.push({ letter, row, col }); dieEl.classList.add('selected'); renderCurrentWord(); }
+        function handleDieClick(dieEl, letter, row, col) { 
+            if (!dieEl || currentWord.some(d => d.row === row && d.col === col)) return; 
+            currentWord.push({ letter, row, col }); 
+            dieEl.classList.add('selected'); 
+            renderCurrentWord(); 
+        }
         
         async function validateWord(word, filters) {
             try {
@@ -302,24 +489,21 @@
                 if (!entry) return { isValid: false };
                 let passesFilters = true;
                 if (filters.includes('no plurals')) {
-                    if (word.toLowerCase().endsWith('s') && entry.word.toLowerCase() !== word.toLowerCase()) {
+                     if (word.toLowerCase().endsWith('s') && entry.word.toLowerCase() !== word.toLowerCase()) {
                         const singularForm = word.slice(0, -1);
-                        if (entry.word.toLowerCase() === singularForm.toLowerCase()) {
-                           passesFilters = false;
-                        }
-                    }
+                        if (entry.word.toLowerCase() === singularForm.toLowerCase()) { passesFilters = false; }
+                     }
                 }
                 const partsOfSpeech = new Set(entry.meanings.map(m => m.partOfSpeech));
                 const posFilters = filters.filter(f => f !== 'no plurals');
-                if (posFilters.length > 0 && !posFilters.some(f => partsOfSpeech.has(f))) {
-                    passesFilters = false;
-                }
+                if (posFilters.length > 0 && !posFilters.some(f => partsOfSpeech.has(f))) { passesFilters = false; }
                 return { isValid: passesFilters };
             } catch (error) { return { isValid: false }; }
         }
         
         async function calculateScores() {
             if (userId !== gameData.hostId) return null;
+
             const allWordsDocs = await getDocs(collection(db, `artifacts/${appId}/public/data/games/${gameId}/playerWords`));
             const allPlayerWords = {};
             allWordsDocs.forEach(doc => { allPlayerWords[doc.id] = doc.data() || {}; });
@@ -327,69 +511,150 @@
             const currentRoundWordsByPlayer = {};
             Object.keys(allPlayerWords).forEach(pid => { currentRoundWordsByPlayer[pid] = allPlayerWords[pid][gameData.round] || []; });
             
-            const isSinglePlayer = Object.keys(gameData.players).length === 1;
-            let wordsToScore;
-            if (isSinglePlayer) { wordsToScore = currentRoundWordsByPlayer[userId] || []; } 
-            else { const allWordsList = Object.values(currentRoundWordsByPlayer).flat(); const wordCounts = allWordsList.reduce((acc, word) => { acc[word] = (acc[word] || 0) + 1; return acc; }, {}); wordsToScore = Object.keys(wordCounts).filter(word => wordCounts[word] === 1); }
-
-            const validationPromises = wordsToScore.map(word => validateWord(word, gameData.wordFilters || []));
+            const allWordsInRound = [...new Set(Object.values(currentRoundWordsByPlayer).flat())]; 
+            const validationPromises = allWordsInRound.map(word => validateWord(word, gameData.wordFilters || []));
             const validationResults = await Promise.all(validationPromises);
-            const validScoringWords = wordsToScore.filter((_, index) => validationResults[index].isValid);
-
+            
+            const initialValidWords = allWordsInRound.filter((_, index) => validationResults[index].isValid);
+            const overrides = gameData.roundOverrides?.[gameData.round] || {};
+            
+            let finalValidWords = new Set(initialValidWords);
+            for(const word in overrides) {
+                if (overrides[word]) finalValidWords.add(word);
+                else finalValidWords.delete(word);
+            }
+            validWordsCache = [...finalValidWords];
+            
+            const wordCounts = Object.values(currentRoundWordsByPlayer).flat().reduce((acc, word) => { acc[word] = (acc[word] || 0) + 1; return acc; }, {});
+            
             const updatedPlayers = { ...gameData.players };
             Object.keys(currentRoundWordsByPlayer).forEach(pid => {
                 let roundScore = 0;
-                currentRoundWordsByPlayer[pid].forEach(word => { if (validScoringWords.includes(word)) roundScore += word.length; });
-                if (updatedPlayers[pid]) { updatedPlayers[pid].roundScore = roundScore; updatedPlayers[pid].score = (updatedPlayers[pid].score || 0) + roundScore; updatedPlayers[pid].history[gameData.round] = roundScore; }
+                const isSinglePlayer = Object.keys(gameData.players).length === 1;
+                currentRoundWordsByPlayer[pid].forEach(word => {
+                    const isUnique = wordCounts[word] === 1;
+                    if (validWordsCache.includes(word) && (isSinglePlayer || isUnique)) {
+                        roundScore += word.length;
+                    }
+                });
+                if (updatedPlayers[pid]) { 
+                    const oldRoundScore = updatedPlayers[pid].history[gameData.round] || 0;
+                    const totalScore = updatedPlayers[pid].score || 0;
+                    updatedPlayers[pid].score = totalScore - oldRoundScore + roundScore;
+                    updatedPlayers[pid].roundScore = roundScore; 
+                    updatedPlayers[pid].history[gameData.round] = roundScore; 
+                }
             });
-            await updateDoc(doc(db, `artifacts/${appId}/public/data/games`, gameId), { players: updatedPlayers });
-            return { validWords: validScoringWords, allWords: allPlayerWords };
+
+            await updateDoc(doc(db, `artifacts/${appId}/public/data/games`, gameId), { players: updatedPlayers, lastScored: new Date() });
+            return { validWords: validWordsCache, allWords: allPlayerWords };
         }
         
-        function renderGame() { renderLayout(); renderLeaderboard(); renderGameInfoControls(); renderTimerAndStatus(); renderGrid(); renderButtons(); }
+        // --- Rendering Functions ---
+        function renderGame() { 
+            renderLayout(); 
+            renderLeaderboard(); 
+            renderGameInfoControls(); 
+            renderTimerAndStatus(); 
+            renderGrid(); 
+            renderButtons(); 
+        }
 
-        function renderLayout() { const isPlaying = gameData?.status === 'playing' || gameData?.status === 'paused'; el.leftPanel.classList.toggle('panel-hidden', isPlaying && !el.leftPanel.classList.contains('force-show')); el.rightPanel.classList.toggle('panel-hidden', false); el.showPanelsBtn.classList.toggle('hidden', !isPlaying); if (!isPlaying) el.leftPanel.classList.remove('force-show'); }
-        function togglePanels() { el.leftPanel.classList.toggle('force-show'); renderLayout(); }
-        function renderLeaderboard() { if (!gameData || !gameData.players) { el.leaderboard.innerHTML = '<p>No players yet.</p>'; return; } const playersArray = Object.entries(gameData.players).map(([id, data]) => ({ id, ...data })); playersArray.sort((a, b) => b.score - a.score); el.leaderboard.innerHTML = `<table class="w-full text-left"><thead><tr class="border-b-2"><th class="py-2 font-semibold">Player</th><th class="py-2 text-center">Round</th><th class="py-2 text-center">Total</th></tr></thead><tbody>${playersArray.map(p => `<tr class="border-b"><td class="py-2">${p.name} ${p.id === userId ? '(You)' : ''} ${p.isHost ? '👑' : ''}</td><td class="py-2 text-center">${p.roundScore}</td><td class="py-2 text-center font-bold">${p.score}</td></tr>`).join('')}</tbody></table>`; }
-        function renderGameInfoControls() { if (!gameData) return; const isHost = userId === gameData.hostId; el.gameInfoControls.innerHTML = `<h2 class="text-2xl font-bold text-gray-700 mb-4">Game Info</h2><div><label class="font-semibold">Game ID:</label><div class="flex items-center gap-2 mt-1"><input id="game-id-display-ingame" type="text" readonly class="w-full bg-gray-100 px-3 py-2 border rounded-lg" value="${gameId}"><button id="copy-game-id-btn-ingame" class="bg-gray-200 p-2 rounded-lg"><svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path d="M8 3a1 1 0 011-1h2a1 1 0 110 2H9a1 1 0 01-1-1z"></path><path d="M6 3a2 2 0 00-2 2v11a2 2 0 002 2h8a2 2 0 002-2V5a2 2 0 00-2-2 3 3 0 01-3 3H9a3 3 0 01-3-3z"></path></svg></button></div></div>${isHost ? `<div id="host-controls" class="mt-4 space-y-2"><button id="start-next-round-btn-ingame" class="w-full bg-green-500 text-white font-bold py-2 px-4 rounded-lg"></button><button id="pause-resume-btn-ingame" class="w-full bg-orange-500 text-white font-bold py-2 px-4 rounded-lg"></button><button id="restart-game-btn-ingame" class="w-full bg-red-600 text-white font-bold py-2 px-4 rounded-lg">End & Restart Game</button></div>` : ''}`; if (isHost) { document.getElementById('start-next-round-btn-ingame')?.addEventListener('click', handleStartGame); document.getElementById('pause-resume-btn-ingame')?.addEventListener('click', handlePauseResumeGame); document.getElementById('restart-game-btn-ingame')?.addEventListener('click', handleRestartGame); } document.getElementById('copy-game-id-btn-ingame')?.addEventListener('click', () => handleCopyGameId(gameId));}
+        function renderLayout() { 
+            const isPlaying = gameData?.status === 'playing' || gameData?.status === 'paused';
+            el.leftPanel.classList.toggle('panel-hidden', isPlaying && !el.leftPanel.classList.contains('force-show')); 
+            el.rightPanel.classList.toggle('panel-hidden', false);
+            el.showPanelsBtn.classList.toggle('hidden', !isPlaying);
+            if (!isPlaying) el.leftPanel.classList.remove('force-show');
+        }
+
+        function togglePanels() { 
+            el.leftPanel.classList.toggle('force-show'); 
+            renderLayout(); 
+        }
+
+        function renderLeaderboard() { 
+            if (!gameData || !gameData.players) { 
+                el.leaderboard.innerHTML = '<p>No players yet.</p>'; 
+                return; 
+            } 
+            const playersArray = Object.entries(gameData.players).map(([id, data]) => ({ id, ...data, isHost: id === gameData.hostId })); 
+            playersArray.sort((a, b) => b.score - a.score); 
+            el.leaderboard.innerHTML = `<table class="w-full text-left"><thead><tr class="border-b-2"><th class="py-2 font-semibold">Player</th><th class="py-2 text-center">Round</th><th class="py-2 text-center">Total</th></tr></thead><tbody>${playersArray.map(p => `<tr class="border-b"><td class="py-2">${p.name} ${p.id === userId ? '(You)' : ''} ${p.isHost ? '👑' : ''}</td><td class="py-2 text-center">${p.roundScore}</td><td class="py-2 text-center font-bold">${p.score}</td></tr>`).join('')}</tbody></table>`; 
+        }
+
+        function renderGameInfoControls() { 
+            if (!gameData) return; 
+            const isHost = userId === gameData.hostId; 
+            el.gameInfoControls.innerHTML = `<h2 class="text-2xl font-bold text-gray-700 mb-4">Game Info</h2><div><label class="font-semibold">Game ID:</label><div class="flex items-center gap-2 mt-1"><input id="game-id-display-ingame" type="text" readonly class="w-full bg-gray-100 px-3 py-2 border rounded-lg" value="${gameId}"><button id="copy-game-id-btn-ingame" class="bg-gray-200 p-2 rounded-lg"><svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path d="M8 3a1 1 0 011-1h2a1 1 0 110 2H9a1 1 0 01-1-1z"></path><path d="M6 3a2 2 0 00-2 2v11a2 2 0 002 2h8a2 2 0 002-2V5a2 2 0 00-2-2 3 3 0 01-3 3H9a3 3 0 01-3-3z"></path></svg></button></div></div>${isHost ? `<div id="host-controls" class="mt-4 space-y-2"><button id="start-next-round-btn-ingame" class="w-full bg-green-500 text-white font-bold py-2 px-4 rounded-lg"></button><button id="pause-resume-btn-ingame" class="w-full bg-orange-500 text-white font-bold py-2 px-4 rounded-lg"></button><button id="restart-game-btn-ingame" class="w-full bg-red-600 text-white font-bold py-2 px-4 rounded-lg">End & Restart Game</button></div>` : ''}`; 
+            if (isHost) { 
+                document.getElementById('start-next-round-btn-ingame')?.addEventListener('click', handleStartGame); 
+                document.getElementById('pause-resume-btn-ingame')?.addEventListener('click', handlePauseResumeGame); 
+                document.getElementById('restart-game-btn-ingame')?.addEventListener('click', handleRestartGame); 
+            } 
+            document.getElementById('copy-game-id-btn-ingame')?.addEventListener('click', () => handleCopyGameId(gameId));
+        }
         
-        async function renderTimerAndStatus() {
+        function renderTimerAndStatus() {
             if (!gameData) return;
             const { status, timer, round } = gameData;
             clearInterval(timerInterval);
+
+            if (status === 'playing' && userId === gameData.hostId) {
+                timerInterval = setInterval(async () => {
+                    const currentTimeLeft = gameData.timer;
+                    if (currentTimeLeft > 0) {
+                        await updateDoc(doc(db, `artifacts/${appId}/public/data/games`, gameId), { timer: currentTimeLeft - 1 });
+                    } else {
+                        clearInterval(timerInterval);
+                        await calculateScores();
+                        await updateDoc(doc(db, `artifacts/${appId}/public/data/games`, gameId), { status: 'scoring' });
+                    }
+                }, 1000);
+            }
+
+            el.timerDisplay.textContent = formatTime(timer || 0);
             if (status === 'playing') {
-                let timeLeft = timer;
-                el.timerDisplay.textContent = formatTime(timeLeft); el.gameStatusDisplay.textContent = `Round ${round}`;
-                if (userId === gameData.hostId) {
-                    timerInterval = setInterval(async () => {
-                        timeLeft--;
-                        if (timeLeft >= 0) await updateDoc(doc(db, `artifacts/${appId}/public/data/games`, gameId), { timer: timeLeft });
-                        else { clearInterval(timerInterval); await updateDoc(doc(db, `artifacts/${appId}/public/data/games`, gameId), { status: 'scoring' }); const scoreData = await calculateScores(); showScoringModal(scoreData); }
-                    }, 1000);
-                }
-            } else if (status === 'paused') { el.timerDisplay.textContent = formatTime(timer); el.gameStatusDisplay.textContent = `Game Paused`; } 
-            else if (status === 'scoring') { el.timerDisplay.textContent = '00:00'; el.gameStatusDisplay.textContent = `Round ${round} Over! Reviewing scores...`;} 
-            else if (status === 'waiting') { el.timerDisplay.textContent = formatTime(gameData.timerDuration || 120); el.gameStatusDisplay.textContent = "Waiting for host..."; }
+                el.gameStatusDisplay.textContent = `Round ${round}`;
+            } else if (status === 'paused') {
+                el.gameStatusDisplay.textContent = `Game Paused`;
+            } else if (status === 'scoring') {
+                el.gameStatusDisplay.textContent = `Round ${round} Over! Reviewing scores...`;
+            } else if (status === 'waiting') {
+                el.timerDisplay.textContent = formatTime(gameData.timerDuration || 120);
+                el.gameStatusDisplay.textContent = "Waiting for host...";
+            }
         }
         
         function renderGrid() {
-            const { status, gridSize } = gameData; let grid;
+            const { status, gridSize } = gameData; 
+            let grid;
             try { grid = typeof gameData.grid === 'string' ? JSON.parse(gameData.grid) : []; } catch (e) { grid = []; }
-            el.gameGrid.innerHTML = ''; const size = gridSize || 5;
+            el.gameGrid.innerHTML = ''; 
+            const size = gridSize || 4;
             el.gameGrid.style.gridTemplateColumns = `repeat(${size}, minmax(0, 1fr))`;
-            if (!grid || grid.length === 0) { el.gameGrid.innerHTML = Array.from({length: size * size}).map(() => `<div class="aspect-square bg-gray-200 rounded-lg"></div>`).join(''); return; }
-            grid.forEach((row, r) => { row.forEach((letter, c) => { const dieEl = document.createElement('button'); dieEl.className = 'die flex items-center justify-center text-2xl md:text-3xl font-bold uppercase bg-white rounded-lg cursor-pointer hover:bg-indigo-100'; dieEl.textContent = letter; dieEl.dataset.row = r; dieEl.dataset.col = c; if (status === 'playing') dieEl.onclick = () => handleDieClick(dieEl, letter, r, c); else { dieEl.disabled = true; dieEl.classList.add('cursor-not-allowed', 'opacity-70'); } el.gameGrid.appendChild(dieEl); }); });
+            if (status === 'waiting' || !grid || grid.length === 0) { 
+                el.gameGrid.innerHTML = Array.from({length: size * size}).map(() => `<div class="aspect-square bg-gray-200 rounded-lg animate-pulse"></div>`).join(''); 
+                return; 
+            }
+            grid.forEach((row, r) => { row.forEach((letter, c) => { 
+                const dieEl = document.createElement('button'); 
+                dieEl.className = 'die flex items-center justify-center text-2xl md:text-3xl font-bold uppercase bg-white rounded-lg cursor-pointer hover:bg-indigo-100'; 
+                dieEl.textContent = letter; dieEl.dataset.row = r; dieEl.dataset.col = c; 
+                if (status === 'playing') dieEl.onclick = () => handleDieClick(dieEl, letter, r, c); 
+                else { dieEl.disabled = true; dieEl.classList.add('cursor-not-allowed', 'opacity-70'); } 
+                el.gameGrid.appendChild(dieEl); }); });
         }
         
         function renderButtons() {
             if (!gameData || !gameData.players) return;
-            const { status, hostId } = gameData;
+            const { status, hostId, round } = gameData;
             const isHost = userId === hostId;
             if (isHost && document.getElementById('host-controls')) {
                 const startNextBtn = document.getElementById('start-next-round-btn-ingame');
                 const pauseResumeBtn = document.getElementById('pause-resume-btn-ingame');
                 const restartBtn = document.getElementById('restart-game-btn-ingame');
-                if (startNextBtn) { startNextBtn.classList.toggle('hidden', status !== 'waiting' && status !== 'scoring'); startNextBtn.textContent = (gameData.round || 0) === 0 ? 'Start Game' : 'Start Next Round';}
+                if (startNextBtn) { startNextBtn.classList.toggle('hidden', status === 'playing' || status === 'paused'); startNextBtn.textContent = (round || 0) === 0 ? 'Start Game' : 'Start Next Round';}
                 if(pauseResumeBtn) { const isPausable = (status === 'playing' || status === 'paused'); pauseResumeBtn.classList.toggle('hidden', !isPausable); if(isPausable) pauseResumeBtn.textContent = status === 'playing' ? 'Pause' : 'Resume'; }
                 if(restartBtn) restartBtn.classList.toggle('hidden', status === 'playing' || status === 'paused');
             }
@@ -409,12 +674,9 @@
                 if (!response.ok) { el.dictionaryDefinition.textContent = "No definition found."; return; }
                 const data = await response.json();
                 data[0].meanings.forEach(meaning => {
-                    const partOfSpeech = document.createElement('strong');
-                    partOfSpeech.className = "block mt-2 capitalize font-bold";
-                    partOfSpeech.textContent = meaning.partOfSpeech;
+                    const partOfSpeech = document.createElement('strong'); partOfSpeech.className = "block mt-2 capitalize font-bold"; partOfSpeech.textContent = meaning.partOfSpeech;
                     el.dictionaryDefinition.appendChild(partOfSpeech);
-                    const definitionsList = document.createElement('ul');
-                    definitionsList.className = 'list-disc list-inside space-y-1';
+                    const definitionsList = document.createElement('ul'); definitionsList.className = 'list-disc list-inside space-y-1';
                     meaning.definitions.forEach(def => { const li = document.createElement('li'); li.textContent = def.definition; definitionsList.appendChild(li); });
                     el.dictionaryDefinition.appendChild(definitionsList);
                 });
@@ -423,24 +685,74 @@
         
         function hideDefinition() { el.dictionaryModal.classList.add('hidden'); }
 
-        async function showScoringModal({validWords, allWords}) {
+        async function showScoringModal() {
+            localOverrides = {}; 
+            el.scoringHostControls.classList.toggle('hidden', userId !== gameData.hostId);
+            el.editScoresToggle.checked = false;
+            el.scoringModalContent.classList.remove('edit-mode');
+            el.applyOverridesBtn.classList.add('hidden');
+            
+            el.scoringModalContent.innerHTML = '<div class="col-span-full text-center">Loading scores...</div>';
+
+            const allWordsDocs = await getDocs(collection(db, `artifacts/${appId}/public/data/games/${gameId}/playerWords`));
+            const allWords = {};
+            allWordsDocs.forEach(doc => { allWords[doc.id] = doc.data() || {}; });
+            
             el.scoringModalContent.innerHTML = '';
-            for (const pid in gameData.players) {
-                const player = gameData.players[pid];
+            const sortedPlayers = Object.entries(gameData.players).sort(([,a], [,b]) => b.roundScore - a.roundScore);
+
+            for (const [pid, player] of sortedPlayers) {
                 const words = allWords[pid]?.[gameData.round] || [];
                 const playerCard = document.createElement('div');
-                playerCard.className = 'border rounded-lg p-4 bg-gray-50';
-                playerCard.innerHTML = `<h3 class="font-bold text-xl mb-3">${player.name} - ${player.roundScore} pts</h3><ul class="space-y-1 h-48 overflow-y-auto pr-2"></ul>`;
+                playerCard.className = 'border rounded-lg p-4 bg-gray-50 flex flex-col';
+                playerCard.innerHTML = `<h3 class="font-bold text-xl mb-3">${player.name} - ${player.roundScore} pts</h3><ul class="space-y-1 h-48 overflow-y-auto pr-2 flex-grow"></ul>`;
                 const wordListEl = playerCard.querySelector('ul');
-                if (words.length === 0) { wordListEl.innerHTML = '<li class="text-gray-400">No words.</li>'; } 
-                else {
-                    words.forEach(word => {
-                        const scoresWord = validWords.includes(word);
-                        const points = scoresWord ? word.length : 0;
+
+                if (words.length === 0) { 
+                    wordListEl.innerHTML = '<li class="text-gray-400">No words submitted.</li>'; 
+                } else {
+                    const wordCounts = Object.values(allWords).flatMap(pWords => pWords[gameData.round] || []).reduce((acc, word) => { acc[word] = (acc[word] || 0) + 1; return acc; }, {});
+                    
+                    words.sort().forEach(word => {
+                        const isUnique = wordCounts[word] === 1;
+                        const isWordValid = validWordsCache.includes(word);
+                        const points = isWordValid && (isUnique || Object.keys(gameData.players).length === 1) ? word.length : 0;
+                        
                         const li = document.createElement('li');
-                        li.className = `flex justify-between items-center cursor-pointer p-1 rounded word-list-item`;
-                        li.innerHTML = `<span>${word}</span><span class="${scoresWord ? 'font-semibold text-green-600' : 'text-gray-500 line-through'}">${scoresWord ? `+${points}`: '0'}</span>`;
-                        li.addEventListener('click', () => showDefinition(word));
+                        li.className = `flex justify-between items-center p-1 rounded word-list-item`;
+                        li.dataset.word = word;
+                        
+                        let validityClass = 'text-gray-500 line-through'; let pointText = '0';
+                        if (points > 0) { validityClass = 'font-semibold text-green-600'; pointText = `+${points}`; } 
+                        else if (isWordValid && !isUnique) { validityClass = 'text-yellow-600'; pointText = '0'; }
+                        
+                        li.innerHTML = `
+                            <span class="word-text cursor-pointer hover:underline">${word}</span>
+                            <div class="flex items-center gap-2">
+                                <span class="word-points ${validityClass}">${pointText}</span>
+                                <button class="host-override-btn text-lg text-green-500 hover:text-green-700" data-action="approve">👍</button>
+                                <button class="host-override-btn text-lg text-red-500 hover:text-red-700" data-action="reject">👎</button>
+                            </div>
+                        `;
+                        
+                        li.querySelector('.word-text').addEventListener('click', () => showDefinition(word));
+                        li.querySelectorAll('.host-override-btn').forEach(btn => btn.addEventListener('click', (e) => {
+                            e.stopPropagation();
+                            const action = e.target.dataset.action;
+                            localOverrides[word] = (action === 'approve');
+                            
+                            li.classList.remove('word-overridden-approve', 'word-overridden-reject');
+                            const pointSpan = li.querySelector('.word-points');
+                            if (action === 'approve') {
+                                li.classList.add('word-overridden-approve');
+                                pointSpan.className = 'word-points font-semibold text-green-600';
+                                pointSpan.textContent = `+${word.length}`;
+                            } else {
+                                li.classList.add('word-overridden-reject');
+                                pointSpan.className = 'word-points text-gray-500 line-through';
+                                pointSpan.textContent = '0';
+                            }
+                        }));
                         wordListEl.appendChild(li);
                     });
                 }
@@ -451,144 +763,90 @@
         }
 
         async function showStandingsModal() {
-            const content = el.standingsModalContent;
-            content.innerHTML = '';
+            const content = el.standingsModalContent; content.innerHTML = '<div class="text-center">Loading...</div>';
             let table = `<table class="w-full text-left table-fixed"><thead class="bg-gray-100"><tr><th class="p-2 w-1/3">Player</th>`;
             const rounds = Array.from({length: gameData.round || 0}, (_, i) => i + 1);
             rounds.forEach(r => { table += `<th class="p-2 text-center cursor-pointer hover:bg-gray-200 round-history-btn" data-round="${r}">R${r}</th>`});
-            table += `<th class="p-2 text-center">Total</th></tr></thead><tbody>`;
+            table += `<th class="p-2 text-center font-bold">Total</th></tr></thead><tbody>`;
             const players = Object.values(gameData.players).sort((a, b) => b.score - a.score);
             players.forEach(p => {
                 table += `<tr class="border-b"><td class="p-2 font-semibold">${p.name}</td>`;
                 rounds.forEach(r => { table += `<td class="p-2 text-center">${p.history[r] || 0}</td>` });
                 table += `<td class="p-2 text-center font-bold">${p.score}</td></tr>`;
             });
-            table += `</tbody></table><div id="round-words-view" class="mt-4 p-2 bg-gray-50 rounded"></div>`;
+            table += `</tbody></table><div id="round-words-view" class="mt-4 p-4 bg-gray-50 rounded hidden"></div>`;
             content.innerHTML = table;
             content.querySelectorAll('.round-history-btn').forEach(btn => btn.addEventListener('click', async (e) => {
                 const roundNum = e.target.dataset.round;
                 const wordView = document.getElementById('round-words-view');
-                wordView.innerHTML = `<h3 class="text-xl font-bold mb-2">Words from Round ${roundNum}</h3>`;
+                wordView.classList.remove('hidden');
+                wordView.innerHTML = `<h3 class="text-xl font-bold mb-2">Words from Round ${roundNum}</h3><div class="text-center">Loading words...</div>`;
                 const allWordsDocs = await getDocs(collection(db, `artifacts/${appId}/public/data/games/${gameId}/playerWords`));
                 const allWordsData = {};
                 allWordsDocs.forEach(doc => { allWordsData[doc.id] = doc.data() || {}; });
+                wordView.innerHTML = `<h3 class="text-xl font-bold mb-2">Words from Round ${roundNum}</h3>`;
                 for(const pid in gameData.players) {
-                    const pName = gameData.players[pid].name;
-                    const words = allWordsData[pid]?.[roundNum] || [];
-                    const playerWordsDiv = document.createElement('div');
-                    playerWordsDiv.className = 'mb-2';
+                    const pName = gameData.players[pid].name; const words = allWordsData[pid]?.[roundNum] || [];
+                    const playerWordsDiv = document.createElement('div'); playerWordsDiv.className = 'mb-2';
                     playerWordsDiv.innerHTML = `<strong class="font-semibold">${pName}:</strong> `;
-                    if (words.length > 0) {
-                        words.forEach((word, index) => {
-                            const wordSpan = document.createElement('span');
-                            wordSpan.className = 'cursor-pointer text-blue-600 hover:underline';
-                            wordSpan.textContent = word;
-                            wordSpan.onclick = () => showDefinition(word);
-                            playerWordsDiv.appendChild(wordSpan);
-                            if (index < words.length - 1) {
-                                playerWordsDiv.append(', ');
-                            }
-                        });
-                    } else {
-                        playerWordsDiv.append('None');
-                    }
+                    if (words.length > 0) { words.forEach((word, index) => { const wordSpan = document.createElement('span'); wordSpan.className = 'cursor-pointer text-blue-600 hover:underline'; wordSpan.textContent = word; wordSpan.onclick = () => showDefinition(word); playerWordsDiv.appendChild(wordSpan); if (index < words.length - 1) playerWordsDiv.append(', '); });
+                    } else { playerWordsDiv.append('None'); }
                     wordView.appendChild(playerWordsDiv);
                 }
             }));
             bringToFront(el.standingsModal);
             el.standingsModal.classList.remove('hidden');
         }
-
+        
+        // --- Keyboard Handling ---
         function handleKeyDown(event) {
-            if (gameData?.status !== 'playing' || document.activeElement === el.joinGameIdInput) return;
+            if (event.target.tagName === 'INPUT' || event.target.tagName === 'TEXTAREA') return;
+            if (gameData?.status !== 'playing') return;
             if (event.key === 'Enter') { event.preventDefault(); el.submitWordBtn.click(); } 
-            else if (event.key === 'Backspace') { event.preventDefault(); el.clearWordBtn.click(); } 
-            else if (/^[a-zA-Z]$/.test(event.key)) {
+            else if (event.key === 'Backspace') { 
+                event.preventDefault();
+                if(currentWord.length > 0){
+                    const lastDie = currentWord.pop();
+                    const dieEl = document.querySelector(`.die[data-row='${lastDie.row}'][data-col='${lastDie.col}']`);
+                    if(dieEl) dieEl.classList.remove('selected');
+                    renderCurrentWord();
+                }
+            } else if (/^[a-zA-Z]$/.test(event.key)) {
                 event.preventDefault(); const letter = event.key.toUpperCase(); const grid = JSON.parse(gameData.grid); const size = gameData.gridSize;
                 const isSelected = (r, c) => currentWord.some(d => d.row === r && d.col === c);
                 for (let r = 0; r < size; r++) { let foundDie = false; for (let c = 0; c < size; c++) { if (grid[r][c] === letter && !isSelected(r,c)) { const dieEl = document.querySelector(`.die[data-row='${r}'][data-col='${c}']`); handleDieClick(dieEl, grid[r][c], r, c); foundDie = true; break; }} if (foundDie) break;}
             }
         }
         
-        function bringToFront(modal) {
-            highestZ++;
-            modal.style.zIndex = highestZ;
-        }
-
+        // --- Modal Drag/Resize Utilities ---
+        function bringToFront(modal) { highestZ++; modal.style.zIndex = highestZ; }
         function setupModal(modal) {
-            const header = modal.querySelector('.modal-header');
-            const resizeHandle = modal.querySelector('.resize-handle');
-            
+            const header = modal.querySelector('.modal-header'); const resizeHandle = modal.querySelector('.resize-handle');
             modal.addEventListener('mousedown', () => bringToFront(modal));
-            
-            if (header) makeDraggable(modal, header);
-            if (resizeHandle) makeResizable(modal, resizeHandle);
+            if (header) makeDraggable(modal, header); if (resizeHandle) makeResizable(modal, resizeHandle);
         }
-
         function makeDraggable(element, header) {
-            let pos1 = 0, pos2 = 0, pos3 = 0, pos4 = 0;
-            header.onmousedown = dragMouseDown;
-
-            function dragMouseDown(e) {
-                e = e || window.event;
-                e.preventDefault();
-                pos3 = e.clientX;
-                pos4 = e.clientY;
-                document.onmouseup = closeDragElement;
-                document.onmousemove = elementDrag;
-            }
-
-            function elementDrag(e) {
-                e = e || window.event;
-                e.preventDefault();
-                pos1 = pos3 - e.clientX;
-                pos2 = pos4 - e.clientY;
-                pos3 = e.clientX;
-                pos4 = e.clientY;
-                element.style.top = (element.offsetTop - pos2) + "px";
-                element.style.left = (element.offsetLeft - pos1) + "px";
-            }
-
-            function closeDragElement() {
-                document.onmouseup = null;
-                document.onmousemove = null;
-            }
+            let pos1 = 0, pos2 = 0, pos3 = 0, pos4 = 0; header.onmousedown = dragMouseDown;
+            function dragMouseDown(e) { e = e || window.event; e.preventDefault(); pos3 = e.clientX; pos4 = e.clientY; document.onmouseup = closeDragElement; document.onmousemove = elementDrag; }
+            function elementDrag(e) { e = e || window.event; e.preventDefault(); pos1 = pos3 - e.clientX; pos2 = pos4 - e.clientY; pos3 = e.clientX; pos4 = e.clientY; element.style.top = (element.offsetTop - pos2) + "px"; element.style.left = (element.offsetLeft - pos1) + "px"; }
+            function closeDragElement() { document.onmouseup = null; document.onmousemove = null; }
         }
-
         function makeResizable(element, handle) {
-            let initialWidth, initialHeight, initialX, initialY;
-
-            handle.onmousedown = startResize;
-
-            function startResize(e) {
-                e.preventDefault();
-                initialWidth = element.offsetWidth;
-                initialHeight = element.offsetHeight;
-                initialX = e.clientX;
-                initialY = e.clientY;
-                document.onmousemove = resizeElement;
-                document.onmouseup = stopResize;
-            }
-
-            function resizeElement(e) {
-                const newWidth = initialWidth + (e.clientX - initialX);
-                const newHeight = initialHeight + (e.clientY - initialY);
-                element.style.width = newWidth + 'px';
-                element.style.height = newHeight + 'px';
-            }
-
-            function stopResize() {
-                document.onmousemove = null;
-                document.onmouseup = null;
-            }
+            let initialWidth, initialHeight, initialX, initialY; handle.onmousedown = startResize;
+            function startResize(e) { e.preventDefault(); initialWidth = element.offsetWidth; initialHeight = element.offsetHeight; initialX = e.clientX; initialY = e.clientY; document.onmousemove = resizeElement; document.onmouseup = stopResize; }
+            function resizeElement(e) { const newWidth = initialWidth + (e.clientX - initialX); const newHeight = initialHeight + (e.clientY - initialY); if (newWidth > 300) element.style.width = newWidth + 'px'; if (newHeight > 200) element.style.height = newHeight + 'px'; }
+            function stopResize() { document.onmousemove = null; document.onmouseup = null; }
         }
-
+        
+        // --- General Utilities ---
         function clearCurrentWord() { currentWord = []; renderCurrentWord(); document.querySelectorAll('.die.selected').forEach(el => el.classList.remove('selected')); }
         function formatTime(seconds) { const mins = Math.floor(seconds / 60); const secs = seconds % 60; return `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`; }
-        function handleCopyGameId(id) { const input = document.createElement('textarea'); input.value = id; document.body.appendChild(input); input.select(); try { document.execCommand('copy'); alert('Game ID copied!'); } catch (err) { alert('Failed to copy.'); } document.body.removeChild(input); }
+        function handleCopyGameId(id) { 
+            if (navigator.clipboard) { navigator.clipboard.writeText(id).then(() => { alert('Game ID copied!'); }, () => { alert('Failed to copy.'); });
+            } else { const input = document.createElement('textarea'); input.value = id; document.body.appendChild(input); input.select(); try { document.execCommand('copy'); alert('Game ID copied!'); } catch (err) { alert('Failed to copy.'); } document.body.removeChild(input); }
+        }
         function listenForPlayerWords() {
-            if (!gameData || !gameData.players) return;
-            const playerIds = Object.keys(gameData.players);
+            if (!gameData || !gameData.players) return; const playerIds = Object.keys(gameData.players);
             Object.keys(wordsUnsubscribe).forEach(pid => { if (!playerIds.includes(pid)) { wordsUnsubscribe[pid](); delete wordsUnsubscribe[pid]; }});
             playerIds.forEach(pid => { if (!wordsUnsubscribe[pid]) { const wordsRef = doc(db, `artifacts/${appId}/public/data/games/${gameId}/playerWords`, pid); wordsUnsubscribe[pid] = onSnapshot(wordsRef, (doc) => { playerWords[pid] = doc.data() || {}; if (pid === userId) renderMyWords(); });}});
         }
