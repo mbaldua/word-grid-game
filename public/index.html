@@ -1,4 +1,4 @@
-<!-- deployement v5  -->
+<!-- deployement v5   -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -225,7 +225,6 @@
         // State variables
         let userId = null, gameId = null, gameData = {}, playerWords = {}, currentWord = [], gameUnsubscribe = null, wordsUnsubscribe = {}, timerInterval = null;
         let highestZ = 60;
-        let validWordsCache = []; // Cache valid words for the current round
         let localOverrides = {}; // For host to stage changes before applying
 
         // DOM element references
@@ -357,6 +356,7 @@
                     grid: '[]', 
                     players: { [userId]: playerInfo }, 
                     round: 0, 
+                    validWordsByRound: {},
                     roundOverrides: {} 
                 }); 
                 await joinGame(newGameId); 
@@ -405,12 +405,10 @@
                         renderGame(); 
                         listenForPlayerWords(); 
                         
-                        // If the game status changes TO scoring, show the modal.
                         if (gameData.status === 'scoring' && oldStatus !== 'scoring') {
                             showScoringModal();
                         }
-
-                        // If the game is already in scoring phase and scores update, refresh the modal if it's open.
+                        
                         if (gameData.status === 'scoring' && oldStatus === 'scoring') {
                             if (!el.scoringModal.classList.contains('hidden')) {
                                 showScoringModal();
@@ -454,7 +452,8 @@
                 round: currentRound, 
                 players: updatedPlayers, 
                 timer: gameData.timerDuration, 
-                [`roundOverrides.${currentRound}`]: {} 
+                [`roundOverrides.${currentRound}`]: {},
+                [`validWordsByRound.${currentRound}`]: [],
             });
         }
         
@@ -481,7 +480,7 @@
             
             await updateDoc(gameRef, { [`roundOverrides.${gameData.round}`]: newOverrides });
             
-            await calculateScores();
+            await calculateScores(true); // Pass true to indicate final calculation
             
             localOverrides = {};
             el.editScoresToggle.checked = false;
@@ -541,7 +540,7 @@
             } catch (error) { return { isValid: false }; }
         }
         
-        async function calculateScores() {
+        async function calculateScores(isFinal = false) {
             if (userId !== gameData.hostId) return null;
 
             const allWordsDocs = await getDocs(collection(db, `artifacts/${appId}/public/data/games/${gameId}/playerWords`));
@@ -563,7 +562,7 @@
                 if (overrides[word]) finalValidWords.add(word);
                 else finalValidWords.delete(word);
             }
-            validWordsCache = [...finalValidWords];
+            const validWordsList = [...finalValidWords];
             
             const wordCounts = Object.values(currentRoundWordsByPlayer).flat().reduce((acc, word) => { acc[word] = (acc[word] || 0) + 1; return acc; }, {});
             
@@ -573,7 +572,7 @@
                 const isSinglePlayer = Object.keys(gameData.players).length === 1;
                 currentRoundWordsByPlayer[pid].forEach(word => {
                     const isUnique = wordCounts[word] === 1;
-                    if (validWordsCache.includes(word) && (isSinglePlayer || isUnique)) {
+                    if (validWordsList.includes(word) && (isSinglePlayer || isUnique)) {
                         roundScore += word.length;
                     }
                 });
@@ -593,7 +592,12 @@
                 }
             });
 
-            await updateDoc(doc(db, `artifacts/${appId}/public/data/games`, gameId), { players: updatedPlayers, lastScored: new Date() });
+            const updatePayload = { players: updatedPlayers };
+            if (isFinal) {
+                updatePayload[`validWordsByRound.${gameData.round}`] = validWordsList;
+            }
+
+            await updateDoc(doc(db, `artifacts/${appId}/public/data/games`, gameId), updatePayload);
         }
         
         // --- Rendering Functions ---
@@ -648,12 +652,13 @@
 
             if (status === 'playing' && userId === gameData.hostId) {
                 timerInterval = setInterval(async () => {
+                    // Re-read from local gameData to avoid race conditions
                     const currentTimeLeft = gameData.timer;
                     if (currentTimeLeft > 0) {
                         await updateDoc(doc(db, `artifacts/${appId}/public/data/games`, gameId), { timer: currentTimeLeft - 1 });
                     } else {
                         clearInterval(timerInterval);
-                        await calculateScores();
+                        await calculateScores(true); // Pass true for final calculation
                         await updateDoc(doc(db, `artifacts/${appId}/public/data/games`, gameId), { status: 'scoring' });
                     }
                 }, 1000);
@@ -738,6 +743,8 @@
             el.scoringModalContent.classList.remove('edit-mode');
             el.applyOverridesBtn.classList.add('hidden');
             
+            const validWordsForRound = gameData.validWordsByRound?.[gameData.round] || [];
+            
             el.scoringModalContent.innerHTML = '<div class="col-span-full text-center">Loading scores...</div>';
 
             const allWordsDocs = await getDocs(collection(db, `artifacts/${appId}/public/data/games/${gameId}/playerWords`));
@@ -761,7 +768,7 @@
                     
                     words.sort().forEach(word => {
                         const isUnique = wordCounts[word] === 1;
-                        const isWordValid = validWordsCache.includes(word);
+                        const isWordValid = validWordsForRound.includes(word);
                         const points = isWordValid && (isUnique || Object.keys(gameData.players).length === 1) ? word.length : 0;
                         
                         const li = document.createElement('li');
@@ -899,4 +906,3 @@
     </script>
 </body>
 </html>
-
