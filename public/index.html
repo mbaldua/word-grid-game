@@ -1,4 +1,4 @@
-<!-- deployement v6  -->
+<!-- deployement v6   -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -222,6 +222,7 @@
           appId: "1:216890772517:web:71d2d55f4adf295db043cc"
         };
         const appId = 'word-game';
+        
         const app = initializeApp(firebaseConfig);
         const db = getFirestore(app);
         const auth = getAuth(app);
@@ -1007,7 +1008,14 @@ Your response must be a single, valid JSON object. The object should contain a s
             Object.keys(wordsUnsubscribe).forEach(pid => { if (!playerIds.includes(pid)) { wordsUnsubscribe[pid](); delete wordsUnsubscribe[pid]; }});
             playerIds.forEach(pid => { if (!wordsUnsubscribe[pid]) { const wordsRef = doc(db, `artifacts/${appId}/public/data/games/${gameId}/playerWords`, pid); wordsUnsubscribe[pid] = onSnapshot(wordsRef, (doc) => { playerWords[pid] = doc.data() || {}; if (pid === userId) renderMyWords(); });}});
         }
+
+        // Close modal on outside click
+        window.addEventListener('click', (e) => {
+            if (!el.dictionaryModal.classList.contains('hidden') && !el.dictionaryModal.contains(e.target) && !e.target.closest('.word-text') && !e.target.closest('button[data-word]')) {
+                hideDefinition();
+            }
+        });
+
     </script>
 </body>
 </html>
-
