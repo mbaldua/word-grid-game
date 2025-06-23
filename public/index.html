@@ -1,4 +1,4 @@
-<!-- deployement v4   -->
+<!-- deployement v5  -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -76,50 +76,57 @@
 </head>
 <body class="bg-gray-100 text-gray-800 flex items-center justify-center min-h-screen">
 
-    <div id="app-container" class="w-full max-w-7xl mx-auto p-4 flex flex-row gap-6 justify-center">
+    <div id="app-container" class="w-full max-w-7xl mx-auto p-4 flex flex-col items-center gap-6">
         <!-- Lobby View -->
-        <div id="lobby-view" class="w-full flex flex-col md:flex-row gap-6 justify-center">
-            <!-- Create Game Panel -->
-            <div id="create-game-panel" class="w-full md:w-1/2 bg-white p-6 rounded-2xl shadow-lg flex flex-col gap-4">
-                 <h2 class="text-2xl font-bold text-gray-700">Create Game</h2>
-                 <div class="grid grid-cols-2 gap-4">
-                    <div>
-                        <label for="timer-setting" class="font-semibold text-gray-600">Time (s):</label>
-                        <input type="number" id="timer-setting" value="60" min="30" max="300" class="w-full mt-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500">
-                    </div>
-                    <div>
-                        <label for="min-word-length" class="font-semibold text-gray-600">Min Length:</label>
-                        <input type="number" id="min-word-length" value="3" min="2" max="10" class="w-full mt-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500">
-                    </div>
-                </div>
-                 <div>
-                    <label for="grid-size" class="font-semibold text-gray-600">Grid Size:</label>
-                    <select id="grid-size" class="w-full mt-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500">
-                        <option value="3">3x3</option>
-                        <option value="4" selected>4x4</option>
-                        <option value="5">5x5</option>
-                        <option value="6">6x6</option>
-                        <option value="7">7x7</option>
-                    </select>
-                </div>
-                 <div>
-                    <label class="font-semibold text-gray-600">Word Filters:</label>
-                    <div class="flex flex-wrap gap-2 my-2" id="filter-tags-container"></div>
-                    <div class="flex gap-2">
-                        <input type="text" id="filter-input" placeholder="Add custom filter (e.g. adjective)" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500">
-                        <button id="add-filter-btn" class="bg-indigo-500 text-white font-bold py-2 px-4 rounded-lg hover:bg-indigo-600">+</button>
-                    </div>
-                </div>
-                <button id="create-game-btn" class="w-full bg-green-500 text-white font-bold py-3 px-4 rounded-lg hover:bg-green-600 transition-colors duration-300 shadow-md mt-auto">Create New Game</button>
+        <div id="lobby-view" class="w-full flex flex-col gap-6 items-center">
+             <div class="w-full max-w-sm bg-white p-6 rounded-2xl shadow-lg">
+                <label for="player-name" class="font-semibold text-gray-600">Your Name:</label>
+                <input type="text" id="player-name" placeholder="Enter your name" class="w-full mt-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500">
             </div>
-            <div class="w-full md:w-1/2 bg-white p-6 rounded-2xl shadow-lg flex flex-col gap-4">
-                 <h2 class="text-2xl font-bold text-gray-700">Join Game</h2>
-                 <p class="text-gray-600">Ask a friend for their Game ID to join their room.</p>
-                 <div class="flex gap-2 mt-auto">
-                     <input type="text" id="join-game-id-input" placeholder="Enter Game ID" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 transition">
-                     <button id="join-game-btn" class="bg-gray-600 text-white font-bold py-3 px-4 rounded-lg hover:bg-gray-700 transition-colors duration-300 shadow-md">Join</button>
-                 </div>
-                 <div id="join-error-msg" class="text-red-500 text-sm mt-2 hidden"></div>
+            <div class="w-full flex flex-col md:flex-row gap-6 justify-center">
+                <!-- Create Game Panel -->
+                <div id="create-game-panel" class="w-full md:w-1/2 bg-white p-6 rounded-2xl shadow-lg flex flex-col gap-4">
+                     <h2 class="text-2xl font-bold text-gray-700">Create Game</h2>
+                     <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label for="timer-setting" class="font-semibold text-gray-600">Time (s):</label>
+                            <input type="number" id="timer-setting" value="45" min="30" max="300" class="w-full mt-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500">
+                        </div>
+                        <div>
+                            <label for="min-word-length" class="font-semibold text-gray-600">Min Length:</label>
+                            <input type="number" id="min-word-length" value="3" min="2" max="10" class="w-full mt-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500">
+                        </div>
+                    </div>
+                     <div>
+                        <label for="grid-size" class="font-semibold text-gray-600">Grid Size:</label>
+                        <select id="grid-size" class="w-full mt-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500">
+                            <option value="3">3x3</option>
+                            <option value="4" selected>4x4</option>
+                            <option value="5">5x5</option>
+                            <option value="6">6x6</option>
+                            <option value="7">7x7</option>
+                        </select>
+                    </div>
+                     <div>
+                        <label class="font-semibold text-gray-600">Word Filters:</label>
+                        <div class="flex flex-wrap gap-2 my-2" id="filter-tags-container"></div>
+                        <div class="flex gap-2">
+                            <input type="text" id="filter-input" placeholder="e.g., adjective" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500">
+                            <button id="add-filter-btn" class="bg-indigo-500 text-white font-bold py-2 px-4 rounded-lg hover:bg-indigo-600">+</button>
+                        </div>
+                    </div>
+                    <button id="create-game-btn" class="w-full bg-green-500 text-white font-bold py-3 px-4 rounded-lg hover:bg-green-600 transition-colors duration-300 shadow-md mt-auto">Create New Game</button>
+                </div>
+                <!-- Join Game Panel -->
+                <div class="w-full md:w-1/2 bg-white p-6 rounded-2xl shadow-lg flex flex-col gap-4">
+                     <h2 class="text-2xl font-bold text-gray-700">Join Game</h2>
+                     <p class="text-gray-600">Ask a friend for their Game ID to join their room.</p>
+                     <div class="flex gap-2 mt-auto">
+                         <input type="text" id="join-game-id-input" placeholder="Enter Game ID" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 transition">
+                         <button id="join-game-btn" class="bg-gray-600 text-white font-bold py-3 px-4 rounded-lg hover:bg-gray-700 transition-colors duration-300 shadow-md">Join</button>
+                     </div>
+                     <div id="join-error-msg" class="text-red-500 text-sm mt-2 hidden"></div>
+                </div>
             </div>
         </div>
 
@@ -223,20 +230,44 @@
 
         // DOM element references
         const el = {
-            lobbyView: document.getElementById('lobby-view'), gameView: document.getElementById('game-view'), leftPanel: document.getElementById('left-panel'),
-            rightPanel: document.getElementById('right-panel'), createGameBtn: document.getElementById('create-game-btn'), joinGameBtn: document.getElementById('join-game-btn'),
-            joinGameIdInput: document.getElementById('join-game-id-input'), joinErrorMsg: document.getElementById('join-error-msg'), gameInfoControls: document.getElementById('game-info-controls'), 
-            timerSetting: document.getElementById('timer-setting'), minWordLength: document.getElementById('min-word-length'), gridSize: document.getElementById('grid-size'), 
-            filterInput: document.getElementById('filter-input'), addFilterBtn: document.getElementById('add-filter-btn'), filterTagsContainer: document.getElementById('filter-tags-container'),
-            leaderboard: document.getElementById('leaderboard'), leaderboardSummary: document.getElementById('leaderboard-summary'), userIdDisplay: document.getElementById('user-id-display'),
-            timerDisplay: document.getElementById('timer-display'), gameStatusDisplay: document.getElementById('game-status-display'), gameGrid: document.getElementById('game-grid'),
-            currentWordDisplay: document.getElementById('current-word-display'), submitWordBtn: document.getElementById('submit-word-btn'), clearWordBtn: document.getElementById('clear-word-btn'),
-            myWordsList: document.getElementById('my-words-list'), scoringModal: document.getElementById('scoring-modal'), scoringHostControls: document.getElementById('scoring-host-controls'),
-            editScoresToggle: document.getElementById('edit-scores-toggle'), scoringModalContent: document.getElementById('scoring-modal-content'), 
-            closeScoringModalBtn: document.getElementById('close-scoring-modal-btn'), dictionaryModal: document.getElementById('dictionary-modal'), 
-            dictionaryWord: document.getElementById('dictionary-word'), dictionaryDefinition: document.getElementById('dictionary-definition'), 
-            closeDictionaryBtn: document.getElementById('close-dictionary-btn'), showPanelsBtn: document.getElementById('show-panels-btn'), 
-            standingsModal: document.getElementById('standings-modal'), standingsModalContent: document.getElementById('standings-modal-content'), 
+            lobbyView: document.getElementById('lobby-view'),
+            playerNameInput: document.getElementById('player-name'),
+            gameView: document.getElementById('game-view'), 
+            leftPanel: document.getElementById('left-panel'),
+            rightPanel: document.getElementById('right-panel'), 
+            createGameBtn: document.getElementById('create-game-btn'), 
+            joinGameBtn: document.getElementById('join-game-btn'),
+            joinGameIdInput: document.getElementById('join-game-id-input'), 
+            joinErrorMsg: document.getElementById('join-error-msg'), 
+            gameInfoControls: document.getElementById('game-info-controls'), 
+            timerSetting: document.getElementById('timer-setting'), 
+            minWordLength: document.getElementById('min-word-length'), 
+            gridSize: document.getElementById('grid-size'), 
+            filterInput: document.getElementById('filter-input'), 
+            addFilterBtn: document.getElementById('add-filter-btn'), 
+            filterTagsContainer: document.getElementById('filter-tags-container'),
+            leaderboard: document.getElementById('leaderboard'), 
+            leaderboardSummary: document.getElementById('leaderboard-summary'), 
+            userIdDisplay: document.getElementById('user-id-display'),
+            timerDisplay: document.getElementById('timer-display'), 
+            gameStatusDisplay: document.getElementById('game-status-display'), 
+            gameGrid: document.getElementById('game-grid'),
+            currentWordDisplay: document.getElementById('current-word-display'), 
+            submitWordBtn: document.getElementById('submit-word-btn'), 
+            clearWordBtn: document.getElementById('clear-word-btn'),
+            myWordsList: document.getElementById('my-words-list'), 
+            scoringModal: document.getElementById('scoring-modal'), 
+            scoringHostControls: document.getElementById('scoring-host-controls'),
+            editScoresToggle: document.getElementById('edit-scores-toggle'), 
+            scoringModalContent: document.getElementById('scoring-modal-content'), 
+            closeScoringModalBtn: document.getElementById('close-scoring-modal-btn'), 
+            dictionaryModal: document.getElementById('dictionary-modal'), 
+            dictionaryWord: document.getElementById('dictionary-word'), 
+            dictionaryDefinition: document.getElementById('dictionary-definition'), 
+            closeDictionaryBtn: document.getElementById('close-dictionary-btn'), 
+            showPanelsBtn: document.getElementById('show-panels-btn'), 
+            standingsModal: document.getElementById('standings-modal'), 
+            standingsModalContent: document.getElementById('standings-modal-content'), 
             closeStandingsModalBtn: document.getElementById('close-standings-modal-btn'),
             applyOverridesBtn: document.getElementById('apply-overrides-btn'),
         };
@@ -284,6 +315,10 @@
         setupModal(el.dictionaryModal);
         
         // --- Lobby Functions ---
+        function getPlayerName() {
+            return el.playerNameInput.value.trim() || `Player_${crypto.randomUUID().substring(0, 4)}`;
+        }
+
         function createFilterTag(text) { 
             const tag = document.createElement('div'); 
             tag.className = "flex items-center bg-indigo-100 text-indigo-700 text-sm font-semibold px-3 py-1 rounded-full"; 
@@ -301,14 +336,14 @@
             if (text) { createFilterTag(text); el.filterInput.value = ''; }
         }
 
-        // Add default filters
-        ['noun', 'verb', 'no plurals', 'adjective', 'adverb'].forEach(createFilterTag);
+        ['noun', 'verb', 'adjective', 'no-plurals'].forEach(createFilterTag);
 
         async function handleCreateGame() {
             if (!userId) return;
             const newGameId = crypto.randomUUID().split('-')[0];
             const gameRef = doc(db, `artifacts/${appId}/public/data/games`, newGameId);
-            const playerInfo = { name: `Player ${userId.substring(0, 4)}`, score: 0, roundScore: 0, history: {} };
+            const playerName = getPlayerName();
+            const playerInfo = { name: playerName, score: 0, roundScore: 0, history: {} };
             const filters = Array.from(el.filterTagsContainer.children).map(tag => tag.firstChild.textContent.trim());
             try { 
                 await setDoc(gameRef, { 
@@ -353,32 +388,38 @@
                 gameId = id;
 
                 if (!game.players[userId]) { 
-                    const playerInfo = { name: `Player ${userId.substring(0, 4)}`, score: 0, roundScore: 0, history: {} }; 
+                    const playerName = getPlayerName();
+                    const playerInfo = { name: playerName, score: 0, roundScore: 0, history: {} }; 
                     await updateDoc(gameRef, { [`players.${userId}`]: playerInfo }); 
                 }
 
-                el.lobbyView.classList.add('hidden'); 
+                el.lobbyView.style.display = 'none'; 
                 el.gameView.classList.remove('hidden'); 
                 el.gameView.classList.add('flex');
+
                 gameUnsubscribe = onSnapshot(gameRef, (doc) => { 
                     const oldStatus = gameData?.status;
-                    const oldPlayersJSON = JSON.stringify(gameData?.players);
                     gameData = doc.data(); 
 
                     if (gameData) { 
                         renderGame(); 
                         listenForPlayerWords(); 
                         
-                        // Handle state transitions
-                        if (gameData.status === 'scoring') {
-                           if (oldStatus !== 'scoring' || (!el.scoringModal.classList.contains('hidden') && oldPlayersJSON !== JSON.stringify(gameData.players))) {
+                        // If the game status changes TO scoring, show the modal.
+                        if (gameData.status === 'scoring' && oldStatus !== 'scoring') {
+                            showScoringModal();
+                        }
+
+                        // If the game is already in scoring phase and scores update, refresh the modal if it's open.
+                        if (gameData.status === 'scoring' && oldStatus === 'scoring') {
+                            if (!el.scoringModal.classList.contains('hidden')) {
                                 showScoringModal();
-                           }
+                            }
                         }
 
                         if (gameData.status === 'playing' && oldStatus !== 'playing') {
                             clearCurrentWord();
-                            el.myWordsList.innerHTML = ''; // Clear submitted words list UI
+                            el.myWordsList.innerHTML = '';
                         }
                     }
                 });
@@ -440,7 +481,6 @@
             
             await updateDoc(gameRef, { [`roundOverrides.${gameData.round}`]: newOverrides });
             
-            // Recalculate scores, which will update the DB and trigger the onSnapshot listener to refresh the modal.
             await calculateScores();
             
             localOverrides = {};
@@ -488,14 +528,14 @@
                 const entry = data[0];
                 if (!entry) return { isValid: false };
                 let passesFilters = true;
-                if (filters.includes('no plurals')) {
+                if (filters.includes('no-plurals')) {
                      if (word.toLowerCase().endsWith('s') && entry.word.toLowerCase() !== word.toLowerCase()) {
                         const singularForm = word.slice(0, -1);
                         if (entry.word.toLowerCase() === singularForm.toLowerCase()) { passesFilters = false; }
                      }
                 }
                 const partsOfSpeech = new Set(entry.meanings.map(m => m.partOfSpeech));
-                const posFilters = filters.filter(f => f !== 'no plurals');
+                const posFilters = filters.filter(f => f !== 'no-plurals');
                 if (posFilters.length > 0 && !posFilters.some(f => partsOfSpeech.has(f))) { passesFilters = false; }
                 return { isValid: passesFilters };
             } catch (error) { return { isValid: false }; }
@@ -537,17 +577,23 @@
                         roundScore += word.length;
                     }
                 });
-                if (updatedPlayers[pid]) { 
-                    const oldRoundScore = updatedPlayers[pid].history[gameData.round] || 0;
-                    const totalScore = updatedPlayers[pid].score || 0;
-                    updatedPlayers[pid].score = totalScore - oldRoundScore + roundScore;
+
+                if (updatedPlayers[pid]) {
+                    let totalScore = 0;
+                    for (const round in updatedPlayers[pid].history) {
+                        if (parseInt(round) !== gameData.round) {
+                            totalScore += updatedPlayers[pid].history[round];
+                        }
+                    }
+                    totalScore += roundScore;
+                    
+                    updatedPlayers[pid].score = totalScore;
                     updatedPlayers[pid].roundScore = roundScore; 
                     updatedPlayers[pid].history[gameData.round] = roundScore; 
                 }
             });
 
             await updateDoc(doc(db, `artifacts/${appId}/public/data/games`, gameId), { players: updatedPlayers, lastScored: new Date() });
-            return { validWords: validWordsCache, allWords: allPlayerWords };
         }
         
         // --- Rendering Functions ---
@@ -705,7 +751,7 @@
                 const words = allWords[pid]?.[gameData.round] || [];
                 const playerCard = document.createElement('div');
                 playerCard.className = 'border rounded-lg p-4 bg-gray-50 flex flex-col';
-                playerCard.innerHTML = `<h3 class="font-bold text-xl mb-3">${player.name} - ${player.roundScore} pts</h3><ul class="space-y-1 h-48 overflow-y-auto pr-2 flex-grow"></ul>`;
+                playerCard.innerHTML = `<h3 class="player-score-header font-bold text-xl mb-3">${player.name} - ${player.roundScore} pts</h3><ul class="space-y-1 h-48 overflow-y-auto pr-2 flex-grow"></ul>`;
                 const wordListEl = playerCard.querySelector('ul');
 
                 if (words.length === 0) { 
@@ -853,3 +899,4 @@
     </script>
 </body>
 </html>
+
