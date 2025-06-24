@@ -1,4 +1,4 @@
-<!-- deployement v6   -->
+<!-- deployement v7 - Patched with Welcome Modal -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -22,8 +22,13 @@
             color: #1f2937; /* gray-800 */
         }
         .modal-bg {
-            background-color: rgba(0, 0, 0, 0.2); /* Reduced dimness */
+            background-color: rgba(0, 0, 0, 0.5);
             transition: opacity 0.3s ease;
+        }
+       .modal-bg.hidden, .modal.hidden {
+            opacity: 0;
+            pointer-events: none;
+            transform: scale(0.95);
         }
         .panel {
             transition: opacity 0.5s ease, transform 0.5s ease, width 0.5s ease;
@@ -44,7 +49,8 @@
             background-color: white;
             border-radius: 1rem;
             box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
-            overflow: hidden; /* Important for resizing */
+            overflow: hidden; 
+            transition: opacity 0.3s ease, transform 0.3s ease;
         }
         .modal-header {
             cursor: move;
@@ -78,11 +84,7 @@
 
     <div id="app-container" class="w-full max-w-7xl mx-auto p-4 flex flex-col items-center gap-6">
         <!-- Lobby View -->
-        <div id="lobby-view" class="w-full flex flex-col gap-6 items-center">
-             <div class="w-full max-w-sm bg-white p-6 rounded-2xl shadow-lg">
-                <label for="player-name" class="font-semibold text-gray-600">Your Name:</label>
-                <input type="text" id="player-name" placeholder="Enter your name" class="w-full mt-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500">
-            </div>
+        <div id="lobby-view" class="w-full hidden flex-col gap-6 items-center">
             <div class="w-full flex flex-col md:flex-row gap-6 justify-center">
                 <!-- Create Game Panel -->
                 <div id="create-game-panel" class="w-full md:w-1/2 bg-white p-6 rounded-2xl shadow-lg flex flex-col gap-4">
@@ -176,6 +178,21 @@
     </div>
     
     <!-- Modals -->
+     <div id="welcome-modal-bg" class="modal-bg fixed inset-0 z-40 flex items-center justify-center hidden">
+        <div id="welcome-modal" class="bg-white p-8 rounded-2xl shadow-2xl w-full max-w-sm flex flex-col gap-6">
+            <h2 class="text-3xl font-bold text-center text-gray-800">Welcome!</h2>
+            <div>
+                <label for="player-name-modal" class="font-semibold text-gray-600">Choose Your Name:</label>
+                <div class="flex gap-2 mt-1">
+                    <input type="text" id="player-name-modal" placeholder="e.g., WordWizard" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500">
+                    <button id="suggest-name-btn" title="Suggest Name" class="bg-gray-200 text-gray-700 font-bold py-2 px-4 rounded-lg hover:bg-gray-300">💡</button>
+                </div>
+                 <p id="name-error-msg" class="text-red-500 text-sm mt-1 hidden">Please enter a name.</p>
+            </div>
+            <button id="enter-lobby-btn" class="w-full bg-indigo-600 text-white font-bold py-3 px-4 rounded-lg hover:bg-indigo-700 shadow-md">Enter Lobby</button>
+        </div>
+    </div>
+
     <div id="scoring-modal" class="modal hidden" style="width: 800px; height: 600px; top: 15%; left: 25%; z-index: 50;">
         <div id="scoring-modal-header" class="modal-header p-4 flex justify-between items-center"><h2 class="text-2xl font-bold text-center flex-grow">Round Over!</h2><button id="close-scoring-modal-btn" class="text-2xl font-bold">&times;</button></div>
         <div class="p-6 h-[calc(100%-60px)] flex flex-col">
@@ -229,16 +246,17 @@
         
         // Game constants
         const DICE = ['A','A','E','E','G','N', 'A','B','B','J','O','O', 'A','C','H','O','P','S', 'A','F','F','K','P','S','A','O','O','T','T','W', 'C','I','M','O','T','U', 'D','E','I','L','R','X', 'D','E','L','R','V','Y','D','I','S','T','T','Y', 'E','E','G','H','N','W', 'E','E','I','N','S','U', 'E','H','R','T','V','W','E','I','O','S','S','T', 'E','L','R','T','T','Y', 'H','I','M','N','U','Q', 'H','L','N','N','R','Z'];
+        const SUGGESTED_NAMES = ['LexiconLasso', 'WordWizard', 'GridGuru', 'AlphaAvenger', 'VowelViper', 'ConsonantKing', 'SyllableSlayer'];
         
         // State variables
         let userId = null, gameId = null, gameData = {}, playerWords = {}, currentWord = [], gameUnsubscribe = null, wordsUnsubscribe = {}, timerInterval = null;
         let highestZ = 70;
         let localOverrides = {};
+        let playerName = '';
 
         // DOM element references
         const el = {
             lobbyView: document.getElementById('lobby-view'),
-            playerNameInput: document.getElementById('player-name'),
             gameView: document.getElementById('game-view'), 
             leftPanel: document.getElementById('left-panel'),
             rightPanel: document.getElementById('right-panel'), 
@@ -281,6 +299,12 @@
             topWordsModal: document.getElementById('top-words-modal'),
             topWordsContent: document.getElementById('top-words-content'),
             closeTopWordsBtn: document.getElementById('close-top-words-btn'),
+            // Welcome Modal elements
+            welcomeModalBg: document.getElementById('welcome-modal-bg'),
+            playerNameModalInput: document.getElementById('player-name-modal'),
+            suggestNameBtn: document.getElementById('suggest-name-btn'),
+            enterLobbyBtn: document.getElementById('enter-lobby-btn'),
+            nameErrorMsg: document.getElementById('name-error-msg'),
         };
 
         // --- Authentication ---
@@ -288,6 +312,9 @@
             if (user) { 
                 userId = user.uid; 
                 el.userIdDisplay.textContent = userId; 
+                if (!playerName) {
+                    el.welcomeModalBg.classList.remove('hidden');
+                }
             } else { 
                 try { 
                     if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
@@ -323,6 +350,10 @@
         el.closeTopWordsBtn.addEventListener('click', () => el.topWordsModal.classList.add('hidden'));
         window.addEventListener('keydown', handleKeyDown);
         
+        // New Modal Listeners
+        el.enterLobbyBtn.addEventListener('click', handleEnterLobby);
+        el.suggestNameBtn.addEventListener('click', suggestName);
+
         // --- Modal Setup ---
         setupModal(el.scoringModal);
         setupModal(el.standingsModal);
@@ -331,7 +362,26 @@
         
         // --- Lobby Functions ---
         function getPlayerName() {
-            return el.playerNameInput.value.trim() || `Player_${crypto.randomUUID().substring(0, 4)}`;
+            return playerName || `Player_${crypto.randomUUID().substring(0, 4)}`;
+        }
+
+        function suggestName() {
+            const baseName = SUGGESTED_NAMES[Math.floor(Math.random() * SUGGESTED_NAMES.length)];
+            const randomNumber = Math.floor(100 + Math.random() * 900);
+            el.playerNameModalInput.value = `${baseName}${randomNumber}`;
+        }
+
+        function handleEnterLobby() {
+            const nameFromModal = el.playerNameModalInput.value.trim();
+            if (!nameFromModal) {
+                el.nameErrorMsg.classList.remove('hidden');
+                return;
+            }
+            playerName = nameFromModal;
+            el.nameErrorMsg.classList.add('hidden');
+            el.welcomeModalBg.classList.add('hidden');
+            el.lobbyView.classList.remove('hidden');
+            el.lobbyView.classList.add('flex');
         }
 
         function createFilterTag(text) { 
@@ -357,8 +407,7 @@
             if (!userId) return;
             const newGameId = crypto.randomUUID().split('-')[0];
             const gameRef = doc(db, `artifacts/${appId}/public/data/games`, newGameId);
-            const playerName = getPlayerName();
-            const playerInfo = { name: playerName, score: 0, roundScore: 0, history: {} };
+            const playerInfo = { name: getPlayerName(), score: 0, roundScore: 0, history: {} };
             const filters = Array.from(el.filterTagsContainer.children).map(tag => tag.firstChild.textContent.trim());
             try { 
                 await setDoc(gameRef, { 
@@ -405,8 +454,7 @@
                 gameId = id;
 
                 if (!game.players[userId]) { 
-                    const playerName = getPlayerName();
-                    const playerInfo = { name: playerName, score: 0, roundScore: 0, history: {} }; 
+                    const playerInfo = { name: getPlayerName(), score: 0, roundScore: 0, history: {} }; 
                     await updateDoc(gameRef, { [`players.${userId}`]: playerInfo }); 
                 }
 
@@ -888,27 +936,40 @@
         }
 
         async function getTopWordsFromGemini(gridLetters, filters, round) {
-            const maxLength = 7;
             const systemPrompt = `You are an expert lexicographer for a word game. Your task is to identify the highest-scoring valid English words that can be constructed from a given set of letters.
 Constraints:
-1. You will be given an array of single-character strings (the 'grid letters') and a maximum word length.
+1. You will be given an array of single-character strings (the 'grid letters').
 2. You can only use each letter from the input array once per word.
-3. All generated words must have a length of at most the specified maximum length.
-4. All generated words must be valid English dictionary words.
+3. All generated words must be valid English dictionary words.
+4. The generated words must match one of the provided part-of-speech filters, if any are provided. A special filter "no-plurals" means you should avoid plural nouns.
 5. Prioritize longer words as they score more points.
-6. The generated words must match one of the provided part-of-speech filters, if any are provided. A special filter "no-plurals" means you should avoid plural nouns.
 Output Format:
 Your response must be a single, valid JSON object. The object should contain a single key, "topWords", which is an array of objects. Each object in the array should have two keys: "word" (the generated word as a string) and "score" (the word's length as an integer). Provide up to 10 of the highest-scoring words. If fewer than 10 words can be formed, return as many as you can find. If no valid words can be formed, return an empty array.`;
 
-            const userPrompt = JSON.stringify({ letters: gridLetters, maxLength: maxLength, filters: filters });
-            
+            const userPrompt = JSON.stringify({ letters: gridLetters, minLength: gameData.minWordLength, filters: filters });
+
             const payload = {
-                contents: [{
-                    role: "user",
-                    parts: [{
-                        text: `${systemPrompt}\n\nHere is the request:\n${userPrompt}`
-                    }]
-                }]
+                contents: [{ role: "user", parts: [{ text: `${systemPrompt}\n\nHere is the request:\n${userPrompt}` }] }],
+                generationConfig: {
+                    responseMimeType: "application/json",
+                    responseSchema: {
+                        type: "OBJECT",
+                        properties: {
+                            topWords: {
+                                type: "ARRAY",
+                                items: {
+                                    type: "OBJECT",
+                                    properties: {
+                                        word: { type: "STRING" },
+                                        score: { type: "NUMBER" },
+                                    },
+                                    required: ["word", "score"],
+                                },
+                            },
+                        },
+                        required: ["topWords"],
+                    },
+                },
             };
 
             const apiKey = "AIzaSyB3ngRcUo2C2Y1Us6lmQWKiGrGRodXI6-Q"; // API Key is handled by the environment
@@ -924,19 +985,24 @@ Your response must be a single, valid JSON object. The object should contain a s
                 const result = await response.json();
 
                 if (result.candidates && result.candidates[0]?.content?.parts[0]?.text) {
-                    let jsonText = result.candidates[0].content.parts[0].text;
-                    jsonText = jsonText.replace(/^```json\s*/, '').replace(/```$/, '').trim();
-                    jsonText = jsonText.replace(/,\s*([\}\]])/g, "$1");
-                    const data = JSON.parse(jsonText);
-                    
-                    if (data.topWords) {
-                         await updateDoc(doc(db, `artifacts/${appId}/public/data/games`, gameId), {
-                            [`topWordsByRound.${round}`]: data.topWords
-                         });
+                    try {
+                        const jsonText = result.candidates[0].content.parts[0].text;
+                        const data = JSON.parse(jsonText);
+                        
+                        if (data.topWords) {
+                             await updateDoc(doc(db, `artifacts/${appId}/public/data/games`, gameId), {
+                                [`topWordsByRound.${round}`]: data.topWords
+                             });
+                        }
+                    } catch (e) {
+                         console.error("Error parsing JSON response from Gemini:", e);
+                         console.error("Received text that failed to parse:", result.candidates[0].content.parts[0].text);
                     }
+                } else {
+                    console.error("No valid candidate text returned from Gemini API.", result);
                 }
             } catch (error) {
-                console.error("Error fetching or storing top words from Gemini:", error);
+                console.error("Error during Gemini API fetch:", error);
             }
         }
 
