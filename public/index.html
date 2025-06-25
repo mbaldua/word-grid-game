@@ -1,4 +1,4 @@
-<!-- deployement v7 - Patched with Welcome Modal -->
+<!-- deployement v8 - Final Bug Fixes -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -78,6 +78,10 @@
         .word-overridden-reject {
             background-color: #fee2e2 !important; /* red-100 */
         }
+        #countdown-overlay {
+            font-size: 15vw;
+            text-shadow: 0 0 20px rgba(0,0,0,0.5);
+        }
     </style>
 </head>
 <body class="bg-gray-100 text-gray-800 flex items-center justify-center min-h-screen">
@@ -85,6 +89,9 @@
     <div id="app-container" class="w-full max-w-7xl mx-auto p-4 flex flex-col items-center gap-6">
         <!-- Lobby View -->
         <div id="lobby-view" class="w-full hidden flex-col gap-6 items-center">
+             <div class="w-full max-w-sm bg-white p-6 rounded-2xl shadow-lg">
+                <label class="font-semibold text-gray-600">Welcome, <span id="lobby-player-name" class="font-bold"></span>!</label>
+            </div>
             <div class="w-full flex flex-col md:flex-row gap-6 justify-center">
                 <!-- Create Game Panel -->
                 <div id="create-game-panel" class="w-full md:w-1/2 bg-white p-6 rounded-2xl shadow-lg flex flex-col gap-4">
@@ -193,6 +200,16 @@
         </div>
     </div>
 
+    <div id="ready-check-modal-bg" class="modal-bg fixed inset-0 z-50 flex-col items-center justify-center hidden">
+        <div class="bg-white p-8 rounded-2xl shadow-2xl w-full max-w-md flex flex-col gap-4">
+            <h2 class="text-3xl font-bold text-center text-gray-800">Ready Check!</h2>
+            <div id="ready-check-list" class="space-y-3"></div>
+            <button id="force-start-btn" class="hidden w-full bg-red-500 text-white font-bold py-3 px-4 rounded-lg hover:bg-red-600 shadow-md disabled:bg-gray-400 disabled:cursor-not-allowed">Force Start</button>
+        </div>
+    </div>
+
+    <div id="countdown-overlay" class="modal-bg fixed inset-0 z-50 hidden items-center justify-center text-white font-bold"></div>
+
     <div id="scoring-modal" class="modal hidden" style="width: 800px; height: 600px; top: 15%; left: 25%; z-index: 50;">
         <div id="scoring-modal-header" class="modal-header p-4 flex justify-between items-center"><h2 class="text-2xl font-bold text-center flex-grow">Round Over!</h2><button id="close-scoring-modal-btn" class="text-2xl font-bold">&times;</button></div>
         <div class="p-6 h-[calc(100%-60px)] flex flex-col">
@@ -227,7 +244,7 @@
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, doc, getDoc, setDoc, updateDoc, onSnapshot, collection, getDocs, writeBatch } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { getFirestore, doc, getDoc, setDoc, updateDoc, onSnapshot, collection, getDocs, writeBatch, arrayUnion } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
         // Use environment variables for Firebase config and App ID for security and flexibility.
         const firebaseConfig = {
@@ -253,6 +270,7 @@
         let highestZ = 70;
         let localOverrides = {};
         let playerName = '';
+        let forceStartTimer = null;
 
         // DOM element references
         const el = {
@@ -299,12 +317,19 @@
             topWordsModal: document.getElementById('top-words-modal'),
             topWordsContent: document.getElementById('top-words-content'),
             closeTopWordsBtn: document.getElementById('close-top-words-btn'),
+            lobbyPlayerName: document.getElementById('lobby-player-name'),
             // Welcome Modal elements
             welcomeModalBg: document.getElementById('welcome-modal-bg'),
             playerNameModalInput: document.getElementById('player-name-modal'),
             suggestNameBtn: document.getElementById('suggest-name-btn'),
             enterLobbyBtn: document.getElementById('enter-lobby-btn'),
             nameErrorMsg: document.getElementById('name-error-msg'),
+            // Ready Check elements
+            readyCheckModalBg: document.getElementById('ready-check-modal-bg'),
+            readyCheckList: document.getElementById('ready-check-list'),
+            forceStartBtn: document.getElementById('force-start-btn'),
+            // Countdown overlay
+            countdownOverlay: document.getElementById('countdown-overlay')
         };
 
         // --- Authentication ---
@@ -349,10 +374,9 @@
         el.revealTopWordsBtn.addEventListener('click', handleRevealTopWords);
         el.closeTopWordsBtn.addEventListener('click', () => el.topWordsModal.classList.add('hidden'));
         window.addEventListener('keydown', handleKeyDown);
-        
-        // New Modal Listeners
         el.enterLobbyBtn.addEventListener('click', handleEnterLobby);
         el.suggestNameBtn.addEventListener('click', suggestName);
+        el.forceStartBtn.addEventListener('click', () => initiateRoundStart(true));
 
         // --- Modal Setup ---
         setupModal(el.scoringModal);
@@ -378,6 +402,7 @@
                 return;
             }
             playerName = nameFromModal;
+            el.lobbyPlayerName.textContent = playerName;
             el.nameErrorMsg.classList.add('hidden');
             el.welcomeModalBg.classList.add('hidden');
             el.lobbyView.classList.remove('hidden');
@@ -407,7 +432,7 @@
             if (!userId) return;
             const newGameId = crypto.randomUUID().split('-')[0];
             const gameRef = doc(db, `artifacts/${appId}/public/data/games`, newGameId);
-            const playerInfo = { name: getPlayerName(), score: 0, roundScore: 0, history: {} };
+            const playerInfo = { name: getPlayerName(), score: 0, roundScore: 0, history: {}, isReady: false };
             const filters = Array.from(el.filterTagsContainer.children).map(tag => tag.firstChild.textContent.trim());
             try { 
                 await setDoc(gameRef, { 
@@ -454,7 +479,7 @@
                 gameId = id;
 
                 if (!game.players[userId]) { 
-                    const playerInfo = { name: getPlayerName(), score: 0, roundScore: 0, history: {} }; 
+                    const playerInfo = { name: getPlayerName(), score: 0, roundScore: 0, history: {}, isReady: false }; 
                     await updateDoc(gameRef, { [`players.${userId}`]: playerInfo }); 
                 }
 
@@ -467,22 +492,13 @@
                     gameData = doc.data(); 
 
                     if (gameData) { 
-                        renderGame(); 
-                        listenForPlayerWords(); 
-                        
-                        if (gameData.status === 'scoring' && oldStatus !== 'scoring') {
-                            showScoringModal();
-                        }
-                        
-                        if (gameData.status === 'scoring' && oldStatus === 'scoring') {
-                            if (!el.scoringModal.classList.contains('hidden')) {
-                                showScoringModal();
+                        listenForPlayerWords();
+                        renderGame(oldStatus);
+                        if (gameData.status === 'ready-check' && userId === gameData.hostId) {
+                            const allReady = Object.values(gameData.players).every(p => p.isReady);
+                            if (allReady) {
+                                initiateRoundStart();
                             }
-                        }
-
-                        if (gameData.status === 'playing' && oldStatus !== 'playing') {
-                            clearCurrentWord();
-                            el.myWordsList.innerHTML = '';
                         }
                     }
                 });
@@ -496,36 +512,50 @@
         // --- Host Controls ---
         async function handleStartGame() {
             if (!gameId || gameData.hostId !== userId) return;
-            const currentRound = (gameData.round || 0) + 1;
-            const size = gameData.gridSize;
-            const shuffledDice = DICE.sort(() => 0.5 - Math.random());
-            const newGrid = Array.from({ length: size }, (_, r) => Array.from({ length: size }, (_, c) => shuffledDice[(r * size + c) % shuffledDice.length]));
-            
             const updatedPlayers = { ...gameData.players };
-            Object.keys(updatedPlayers).forEach(pid => { updatedPlayers[pid].roundScore = 0; });
-            
-            const batch = writeBatch(db);
-            Object.keys(gameData.players).forEach(pid => { 
-                const wordsRef = doc(db, `artifacts/${appId}/public/data/games/${gameId}/playerWords`, pid); 
-                batch.set(wordsRef, { [currentRound]: [] }, { merge: true }); 
-            });
-            await batch.commit();
-
+            Object.keys(updatedPlayers).forEach(pid => { updatedPlayers[pid].isReady = false; });
             await updateDoc(doc(db, `artifacts/${appId}/public/data/games`, gameId), { 
-                status: 'playing', 
-                grid: JSON.stringify(newGrid), 
-                round: currentRound, 
-                players: updatedPlayers, 
-                timer: gameData.timerDuration, 
-                [`roundOverrides.${currentRound}`]: {},
-                [`validWordsByRound.${currentRound}`]: [],
-                [`topWordsByRound.${currentRound}`]: [],
+                status: 'ready-check',
+                players: updatedPlayers
             });
-
-            // Trigger Gemini API call in the background
-            getTopWordsFromGemini(newGrid.flat(), gameData.wordFilters, currentRound);
         }
         
+        async function initiateRoundStart(forced = false) {
+             if (!gameId || gameData.hostId !== userId) return;
+             if (gameData.status === 'starting' || gameData.status === 'playing') return;
+             if (gameData.status !== 'ready-check' && !forced) return;
+
+             clearTimeout(forceStartTimer);
+
+             const currentRound = (gameData.round || 0) + 1;
+             const size = gameData.gridSize;
+             const shuffledDice = DICE.sort(() => 0.5 - Math.random());
+             const newGrid = Array.from({ length: size }, (_, r) => Array.from({ length: size }, (_, c) => shuffledDice[(r * size + c) % shuffledDice.length]));
+            
+             const updatedPlayers = { ...gameData.players };
+             Object.keys(updatedPlayers).forEach(pid => { updatedPlayers[pid].roundScore = 0; });
+            
+             const batch = writeBatch(db);
+             Object.keys(gameData.players).forEach(pid => { 
+                 const wordsRef = doc(db, `artifacts/${appId}/public/data/games/${gameId}/playerWords`, pid); 
+                 batch.set(wordsRef, { [currentRound]: [] }, { merge: true }); 
+             });
+             await batch.commit();
+
+             await updateDoc(doc(db, `artifacts/${appId}/public/data/games`, gameId), { 
+                 status: 'starting', 
+                 grid: JSON.stringify(newGrid), 
+                 round: currentRound, 
+                 players: updatedPlayers, 
+                 timer: gameData.timerDuration, 
+                 [`roundOverrides.${currentRound}`]: {},
+                 [`validWordsByRound.${currentRound}`]: [],
+                 [`topWordsByRound.${currentRound}`]: [],
+             });
+
+             getTopWordsFromGemini(newGrid.flat(), gameData.wordFilters, currentRound);
+        }
+
         async function handleRestartGame() { 
             if (!gameId || gameData.hostId !== userId) return; 
             location.reload(); 
@@ -549,7 +579,7 @@
             
             await updateDoc(gameRef, { [`roundOverrides.${gameData.round}`]: newOverrides });
             
-            await calculateScores(true); // Pass true to indicate final calculation
+            await calculateScores(true);
             
             localOverrides = {};
             el.editScoresToggle.checked = false;
@@ -574,7 +604,8 @@
             }
             try { 
                 const wordsRef = doc(db, `artifacts/${appId}/public/data/games/${gameId}/playerWords`, userId); 
-                await setDoc(wordsRef, { [gameData.round]: [...myCurrentWords, word] }, { merge: true }); 
+                const roundField = String(gameData.round);
+                await setDoc(wordsRef, { [roundField]: arrayUnion(word) }, { merge: true });
                 clearCurrentWord(); 
             } catch(error) { 
                 console.error("Error submitting word:", error); 
@@ -670,7 +701,39 @@
         }
         
         // --- Rendering Functions ---
-        function renderGame() { 
+        function renderGame(oldStatus) { 
+            // Handle view transitions based on status changes
+            switch(gameData.status) {
+                case 'waiting':
+                    el.readyCheckModalBg.classList.add('hidden');
+                    el.countdownOverlay.classList.add('hidden');
+                    break;
+                case 'ready-check':
+                    el.readyCheckModalBg.classList.remove('hidden');
+                    renderReadyCheckModal();
+                    break;
+                case 'starting':
+                     if (oldStatus !== 'starting') {
+                        el.readyCheckModalBg.classList.add('hidden');
+                        showCountdownAnimation();
+                     }
+                    break;
+                case 'playing':
+                    if(oldStatus !== 'playing'){
+                        clearCurrentWord();
+                        el.myWordsList.innerHTML = '';
+                    }
+                    el.countdownOverlay.classList.add('hidden');
+                    break;
+                case 'scoring':
+                     if (oldStatus !== 'scoring') {
+                        showScoringModal();
+                    } else if (!el.scoringModal.classList.contains('hidden')) {
+                        showScoringModal();
+                    }
+                    break;
+            }
+
             renderLayout(); 
             renderLeaderboard(); 
             renderGameInfoControls(); 
@@ -721,13 +784,19 @@
 
             if (status === 'playing' && userId === gameData.hostId) {
                 timerInterval = setInterval(async () => {
-                    const currentTimeLeft = gameData.timer;
-                    if (currentTimeLeft > 0) {
-                        await updateDoc(doc(db, `artifacts/${appId}/public/data/games`, gameId), { timer: currentTimeLeft - 1 });
+                    const gameRef = doc(db, `artifacts/${appId}/public/data/games`, gameId);
+                    const gameDocSnap = await getDoc(gameRef);
+                    if(!gameDocSnap.exists()) {
+                        clearInterval(timerInterval);
+                        return;
+                    }
+                    const currentTimer = gameDocSnap.data().timer;
+                    if (currentTimer > 0) {
+                        await updateDoc(gameRef, { timer: currentTimer - 1 });
                     } else {
                         clearInterval(timerInterval);
                         await calculateScores(true);
-                        await updateDoc(doc(db, `artifacts/${appId}/public/data/games`, gameId), { status: 'scoring' });
+                        await updateDoc(gameRef, { status: 'scoring' });
                     }
                 }, 1000);
             }
@@ -739,9 +808,9 @@
                 el.gameStatusDisplay.textContent = `Game Paused`;
             } else if (status === 'scoring') {
                 el.gameStatusDisplay.textContent = `Round ${round} Over! Reviewing scores...`;
-            } else if (status === 'waiting') {
+            } else if (status === 'waiting' || status === 'ready-check') {
                 el.timerDisplay.textContent = formatTime(gameData.timerDuration || 120);
-                el.gameStatusDisplay.textContent = "Waiting for host...";
+                el.gameStatusDisplay.textContent = status === 'ready-check' ? "Players are getting ready..." : "Waiting for host...";
             }
         }
         
@@ -752,17 +821,25 @@
             el.gameGrid.innerHTML = ''; 
             const size = gridSize || 4;
             el.gameGrid.style.gridTemplateColumns = `repeat(${size}, minmax(0, 1fr))`;
-            if (status === 'waiting' || !grid || grid.length === 0) { 
-                el.gameGrid.innerHTML = Array.from({length: size * size}).map(() => `<div class="aspect-square bg-gray-200 rounded-lg animate-pulse"></div>`).join(''); 
-                return; 
+            
+            if (status !== 'playing' && grid && grid.length > 0) {
+                 grid.forEach((row, r) => { row.forEach((letter, c) => { 
+                    const dieEl = document.createElement('button'); 
+                    dieEl.className = 'die flex items-center justify-center text-2xl md:text-3xl font-bold uppercase bg-white rounded-lg opacity-70 cursor-not-allowed'; 
+                    dieEl.textContent = letter;
+                    dieEl.disabled = true;
+                    el.gameGrid.appendChild(dieEl); 
+                }); });
+            } else if (status === 'playing' && grid && grid.length > 0) {
+                grid.forEach((row, r) => { row.forEach((letter, c) => { 
+                    const dieEl = document.createElement('button'); 
+                    dieEl.className = 'die flex items-center justify-center text-2xl md:text-3xl font-bold uppercase bg-white rounded-lg cursor-pointer hover:bg-indigo-100'; 
+                    dieEl.textContent = letter; dieEl.dataset.row = r; dieEl.dataset.col = c; 
+                    dieEl.onclick = () => handleDieClick(dieEl, letter, r, c); 
+                    el.gameGrid.appendChild(dieEl); }); });
+            } else {
+                 el.gameGrid.innerHTML = Array.from({length: size * size}).map(() => `<div class="aspect-square bg-gray-200 rounded-lg animate-pulse"></div>`).join(''); 
             }
-            grid.forEach((row, r) => { row.forEach((letter, c) => { 
-                const dieEl = document.createElement('button'); 
-                dieEl.className = 'die flex items-center justify-center text-2xl md:text-3xl font-bold uppercase bg-white rounded-lg cursor-pointer hover:bg-indigo-100'; 
-                dieEl.textContent = letter; dieEl.dataset.row = r; dieEl.dataset.col = c; 
-                if (status === 'playing') dieEl.onclick = () => handleDieClick(dieEl, letter, r, c); 
-                else { dieEl.disabled = true; dieEl.classList.add('cursor-not-allowed', 'opacity-70'); } 
-                el.gameGrid.appendChild(dieEl); }); });
         }
         
         function renderButtons() {
@@ -773,15 +850,19 @@
                 const startNextBtn = document.getElementById('start-next-round-btn-ingame');
                 const pauseResumeBtn = document.getElementById('pause-resume-btn-ingame');
                 const restartBtn = document.getElementById('restart-game-btn-ingame');
-                if (startNextBtn) { startNextBtn.classList.toggle('hidden', status === 'playing' || status === 'paused'); startNextBtn.textContent = (round || 0) === 0 ? 'Start Game' : 'Start Next Round';}
+                if (startNextBtn) { startNextBtn.classList.toggle('hidden', status === 'playing' || status === 'paused' || status === 'ready-check'); startNextBtn.textContent = (round || 0) === 0 ? 'Start Game' : 'Start Next Round';}
                 if(pauseResumeBtn) { const isPausable = (status === 'playing' || status === 'paused'); pauseResumeBtn.classList.toggle('hidden', !isPausable); if(isPausable) pauseResumeBtn.textContent = status === 'playing' ? 'Pause' : 'Resume'; }
-                if(restartBtn) restartBtn.classList.toggle('hidden', status === 'playing' || status === 'paused');
+                if(restartBtn) restartBtn.classList.toggle('hidden', status === 'playing' || status === 'paused' || status === 'ready-check');
             }
             const isPlaying = status === 'playing'; el.submitWordBtn.disabled = !isPlaying; el.clearWordBtn.disabled = !isPlaying;
         }
 
         function renderCurrentWord() { el.currentWordDisplay.textContent = currentWord.map(w => w.letter).join(''); }
-        function renderMyWords() { const myWords = playerWords[userId]?.[gameData.round] || []; el.myWordsList.innerHTML = myWords.map(word => `<li class="p-2 bg-white rounded shadow-sm mb-2">${word}</li>`).join(''); el.myWordsList.scrollTop = el.myWordsList.scrollHeight; }
+        function renderMyWords() { 
+            const myWords = playerWords[userId]?.[gameData.round] || []; 
+            el.myWordsList.innerHTML = myWords.map(word => `<li class="p-2 bg-white rounded shadow-sm mb-2">${word}</li>`).join(''); 
+            el.myWordsList.scrollTop = el.myWordsList.scrollHeight; 
+        }
         
         async function showDefinition(word) {
             el.dictionaryWord.textContent = 'Loading...'; 
@@ -1022,7 +1103,6 @@ Your response must be a single, valid JSON object. The object should contain a s
             bringToFront(el.topWordsModal);
         }
         
-        // --- Keyboard Handling ---
         function handleKeyDown(event) {
             if (event.target.tagName === 'INPUT' || event.target.tagName === 'TEXTAREA') return;
             if (gameData?.status !== 'playing') return;
@@ -1073,6 +1153,64 @@ Your response must be a single, valid JSON object. The object should contain a s
             if (!gameData || !gameData.players) return; const playerIds = Object.keys(gameData.players);
             Object.keys(wordsUnsubscribe).forEach(pid => { if (!playerIds.includes(pid)) { wordsUnsubscribe[pid](); delete wordsUnsubscribe[pid]; }});
             playerIds.forEach(pid => { if (!wordsUnsubscribe[pid]) { const wordsRef = doc(db, `artifacts/${appId}/public/data/games/${gameId}/playerWords`, pid); wordsUnsubscribe[pid] = onSnapshot(wordsRef, (doc) => { playerWords[pid] = doc.data() || {}; if (pid === userId) renderMyWords(); });}});
+        }
+        
+        function renderReadyCheckModal() {
+            el.readyCheckList.innerHTML = '';
+            
+            clearTimeout(forceStartTimer);
+
+            Object.entries(gameData.players).forEach(([pid, player]) => {
+                const playerReadyDiv = document.createElement('div');
+                playerReadyDiv.className = 'flex items-center justify-between bg-gray-100 p-3 rounded-lg';
+                const isCurrentUser = pid === userId;
+
+                playerReadyDiv.innerHTML = `
+                    <label for="ready-check-${pid}" class="font-semibold ${isCurrentUser ? 'text-indigo-600' : ''}">${player.name} ${isCurrentUser ? '(You)' : ''}</label>
+                    <input type="checkbox" id="ready-check-${pid}" class="h-6 w-6 rounded-md accent-indigo-500" ${player.isReady ? 'checked' : ''} ${!isCurrentUser ? 'disabled' : ''}>
+                `;
+                
+                if (isCurrentUser) {
+                    playerReadyDiv.querySelector(`#ready-check-${pid}`).addEventListener('change', async (e) => {
+                        await updateDoc(doc(db, `artifacts/${appId}/public/data/games`, gameId), {
+                            [`players.${userId}.isReady`]: e.target.checked
+                        });
+                    });
+                }
+                
+                el.readyCheckList.appendChild(playerReadyDiv);
+            });
+            
+            const isHost = userId === gameData.hostId;
+            el.forceStartBtn.classList.toggle('hidden', !isHost);
+            if (isHost) {
+                el.forceStartBtn.disabled = true;
+                forceStartTimer = setTimeout(() => {
+                    el.forceStartBtn.disabled = false;
+                }, 15000);
+            }
+        }
+
+        function showCountdownAnimation() {
+            el.countdownOverlay.classList.remove('hidden');
+            el.countdownOverlay.classList.add('flex');
+            let count = 3;
+            el.countdownOverlay.textContent = count;
+
+            const interval = setInterval(() => {
+                count--;
+                if (count > 0) {
+                    el.countdownOverlay.textContent = count;
+                } else if (count === 0) {
+                    el.countdownOverlay.textContent = 'GO!';
+                } else {
+                    clearInterval(interval);
+                    el.countdownOverlay.classList.add('hidden');
+                    if(userId === gameData.hostId){
+                         updateDoc(doc(db, `artifacts/${appId}/public/data/games`, gameId), { status: 'playing' });
+                    }
+                }
+            }, 1000);
         }
 
         // Close modal on outside click
