@@ -208,7 +208,7 @@
         </div>
     </div>
 
-    <div id="countdown-overlay" class="modal-bg fixed inset-0 z-50 hidden items-center justify-center text-white font-bold"></div>
+    <div id="countdown-overlay" class="modal-bg bg-slate-900 fixed inset-0 z-50 hidden items-center justify-center text-white font-bold"></div>
 
     <div id="scoring-modal" class="modal hidden" style="width: 800px; height: 600px; top: 15%; left: 25%; z-index: 50;">
         <div id="scoring-modal-header" class="modal-header p-4 flex justify-between items-center"><h2 class="text-2xl font-bold text-center flex-grow">Round Over!</h2><button id="close-scoring-modal-btn" class="text-2xl font-bold">&times;</button></div>
@@ -219,7 +219,7 @@
             </div>
             <div id="scoring-modal-content" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 overflow-y-auto flex-grow"></div>
             <div class="mt-4 text-center">
-                <button id="reveal-top-words-btn" class="bg-purple-600 text-white font-bold py-2 px-6 rounded-lg hover:bg-purple-700 disabled:bg-gray-400" disabled>Reveal Top Words 💡</button>
+                <button id="reveal-top-words-btn" class="bg-purple-600 text-white font-bold py-2 px-6 rounded-lg hover:bg-purple-700 disabled:bg-gray-400" disabled>Reveal Interesting Possible Words 💡</button>
             </div>
         </div>
         <div class="resize-handle"></div>
@@ -426,7 +426,7 @@
             if (text) { createFilterTag(text); el.filterInput.value = ''; }
         }
 
-        ['noun', 'verb', 'adjective', 'no-plurals'].forEach(createFilterTag);
+        ['noun', 'verb', 'adjective', 'no-plurals','adverb'].forEach(createFilterTag);
 
         async function handleCreateGame() {
             if (!userId) return;
@@ -1018,14 +1018,18 @@
 
         async function getTopWordsFromGemini(gridLetters, filters, round) {
             const systemPrompt = `You are an expert lexicographer for a word game. Your task is to identify the highest-scoring valid English words that can be constructed from a given set of letters.
-Constraints:
-1. You will be given an array of single-character strings (the 'grid letters').
-2. You can only use each letter from the input array once per word.
-3. All generated words must be valid English dictionary words.
-4. The generated words must match one of the provided part-of-speech filters, if any are provided. A special filter "no-plurals" means you should avoid plural nouns.
-5. Prioritize longer words as they score more points.
-Output Format:
-Your response must be a single, valid JSON object. The object should contain a single key, "topWords", which is an array of objects. Each object in the array should have two keys: "word" (the generated word as a string) and "score" (the word's length as an integer). Provide up to 10 of the highest-scoring words. If fewer than 10 words can be formed, return as many as you can find. If no valid words can be formed, return an empty array.`;
+                                    The Objective is to suggest user unique words for their growth and learning.
+                                    Constraints:
+                                    1. Given a word, points are awarded based on the length of the word (1 point per letter).
+                                    2. You will be given an array of single-character strings (the 'grid letters').
+                                    3. You can only use each letter from the input array once per word.
+                                    4. All generated words must be valid English dictionary words and unique.
+                                    5. The generated words must match one of the provided part-of-speech filters, if any are provided. 
+                                    6. The word must be atmost 6 letters long.
+                                    7. You must not generat plural forms of words having 's' or 'es' or past tense forms ending with 'ed'.
+                                    8. Prioritize longer words as they score more points.
+                                    Output Format:
+                                    Your response must be a single, valid JSON object. The object should contain a single key, "topWords", which is an array of objects. Each object in the array should have two keys: "word" (the generated word as a string) and "score" (the word's length as an integer). Provide up to 10 of the highest-scoring words. If fewer than 10 words can be formed, return as many as you can find. If no valid words can be formed, return an empty array.`;
 
             const userPrompt = JSON.stringify({ letters: gridLetters, minLength: gameData.minWordLength, filters: filters });
 
