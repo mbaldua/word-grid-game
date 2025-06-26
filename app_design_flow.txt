@@ -57,9 +57,49 @@ Center Panel: The game grid area shows a placeholder or a message like "Waiting 
 
 Leaderboard (Left Panel): This panel displays a real-time list of all players currently in the lobby. Clicking the 'Leaderboard 🔎' title opens the detailed history modal.
 
-B. During a Round (status: 'playing')
+Left Panel (Host Only): In this state (between rounds), the host sees special controls in the left panel. This includes input fields for "Next Round Time" and "Next Round Min Length," which are pre-filled with the settings from the previous round. The "Start Next Round" button is also visible here.
 
-Layout: By default, the Left Panel (Info & Leaderboard) is hidden to maximize focus, while the Center Panel (Grid) and Right Panel (Word List) remain visible. Host-specific controls appear in the Left Panel when it is visible.
+B. Ready Check Phase (status: 'ready-check')
+
+Trigger: The Host clicks "Start Game" or "Start Next Round". The game status changes from waiting to ready-check.
+
+UI: A full-screen, semi-transparent modal appears for all players. This modal is titled "Ready Check!" and displays:
+
+A list of all players in the game.
+
+A checkbox next to each player's name.
+
+Player Interaction:
+
+Each player can click the checkbox next to their own name to mark themselves as ready. This action is updated in real-time for all players to see (e.g., the checkbox becomes checked ✅).
+
+Checkboxes for other players are disabled.
+
+Host Interaction:
+
+The Host must also check in.
+
+A "Force Start" button is visible only to the Host. This button is disabled for the first 15 seconds to give players a chance to check in. After 15 seconds, the Host can click it to proceed even if not all players are ready.
+
+Transition: The game proceeds to the next status (starting) when either:
+
+All players have checked the "ready" box.
+
+The Host clicks the "Force Start" button.
+
+C. Starting a Round (status: 'starting')
+
+Trigger: The ready-check phase is completed.
+
+UI: The "Ready Check" modal closes, and a full-screen, semi-transparent overlay appears for all players.
+
+Animation: A large countdown appears in the center of the screen: "3... 2... 1... GO!".
+
+Transition: After the animation, the status changes to playing, and the round begins.
+
+D. During a Round (status: 'playing')
+
+Layout: By default, the Left Panel (Info & Leaderboard) is hidden to maximize focus, while the Center Panel (Grid) and Right Panel (Word List) remain visible. Host-specific controls, including the dynamic round settings, are hidden during this phase.
 
 Center Panel:
 
@@ -69,11 +109,11 @@ The Timer is counting down at the top.
 
 A "Show/Hide Info" button appears, allowing any player to toggle the visibility of the left panel.
 
-Right Panel: The player's word entry components are fully visible and usable. When a new round begins, the 'Current Word' display and 'My Words' list are automatically cleared for all players.
+Right Panel: The player's word entry components are fully visible and usable. When a new round begins, the 'Current Word' display and 'My Words' list are automatically cleared for all players. Word submissions do not trigger a client-side length validation alert; words of any length are accepted and appear in the user's list, with final validation occurring during the scoring phase.
 
-C. End of Round (status: 'scoring')
+E. End of Round (status: 'scoring')
 
-Layout: All three panels reappear automatically.
+Layout: All three panels reappear automatically. The host's controls for the next round become visible in the left panel.
 
 Scoring Modal: A modal appears, showing a score breakdown. Words are sorted and styled by status. Any score changes made by the host are instantly recalculated and reflected in the UI for all players in real-time. On desktop, this modal is draggable.
 
@@ -86,6 +126,8 @@ Player Interactions:
 All Players: Can click on a word's text to open the dictionary modal.
 
 Host-Specific Controls:
+
+Dynamic Round Settings: Between rounds (in the waiting or scoring state), the host can use input fields in the left panel to adjust the timer duration and minimum word length for the upcoming round. These new settings are applied when the host clicks "Start Next Round."
 
 Host Score Overrides: In an "Edit Mode" (toggled by a checkbox), the host can approve (👍) or reject (👎) any word. These changes are staged locally in the UI. A dedicated "Apply & Recalculate" button saves all overrides at once, updating scores for all players. The 'Reveal Top Words' button becomes enabled for all players only after the host has finalized the scores.
 

@@ -536,13 +536,31 @@
         }
         
         // --- Host Controls ---
+        // async function handleStartGame() {
+        //     if (!gameId || gameData.hostId !== userId) return;
+        //     const updatedPlayers = { ...gameData.players };
+        //     Object.keys(updatedPlayers).forEach(pid => { updatedPlayers[pid].isReady = false; });
+        //     await updateDoc(doc(db, `artifacts/${appId}/public/data/games`, gameId), { 
+        //         status: 'ready-check',
+        //         players: updatedPlayers
+        //     });
+        // }
         async function handleStartGame() {
             if (!gameId || gameData.hostId !== userId) return;
+            
+            // Read the new settings from the in-game controls
+            const newTimer = parseInt(document.getElementById('timer-setting-ingame').value, 10);
+            const newMinLength = parseInt(document.getElementById('min-word-length-ingame').value, 10);
+
             const updatedPlayers = { ...gameData.players };
             Object.keys(updatedPlayers).forEach(pid => { updatedPlayers[pid].isReady = false; });
+            
             await updateDoc(doc(db, `artifacts/${appId}/public/data/games`, gameId), { 
                 status: 'ready-check',
-                players: updatedPlayers
+                players: updatedPlayers,
+                // Apply the new settings for the next round
+                timerDuration: newTimer,
+                minWordLength: newMinLength
             });
         }
         
@@ -623,11 +641,11 @@
                 return; 
             }
             const myCurrentWords = playerWords[userId]?.[gameData.round] || [];
-            if (myCurrentWords.includes(word)) { 
-                alert("You have already submitted this word."); 
-                clearCurrentWord(); 
-                return; 
-            }
+            // if (myCurrentWords.includes(word)) { 
+            //     alert("You have already submitted this word."); 
+            //     clearCurrentWord(); 
+            //     return; 
+            // }
             try { 
                 const wordsRef = doc(db, `artifacts/${appId}/public/data/games/${gameId}/playerWords`, userId); 
                 const roundField = String(gameData.round);
@@ -698,7 +716,13 @@
                 const isSinglePlayer = Object.keys(gameData.players).length === 1;
                 currentRoundWordsByPlayer[pid].forEach(word => {
                     const isUnique = wordCounts[word] === 1;
-                    if (validWordsList.includes(word) && (isSinglePlayer || isUnique)) {
+                    // if (validWordsList.includes(word) && (isSinglePlayer || isUnique)) {
+                    //     roundScore += word.length;
+                    // }
+                    const isLongEnough = word.length >= gameData.minWordLength; 
+
+                    // --- AND UPDATE THIS LINE ---
+                    if (validWordsList.includes(word) && isLongEnough && (isSinglePlayer || isUnique)) {
                         roundScore += word.length;
                     }
                 });
@@ -791,10 +815,52 @@
             el.leaderboard.innerHTML = `<table class="w-full text-left"><thead><tr class="border-b-2"><th class="py-2 font-semibold">Player</th><th class="py-2 text-center">Round</th><th class="py-2 text-center">Total</th></tr></thead><tbody>${playersArray.map(p => `<tr class="border-b"><td class="py-2">${p.name} ${p.id === userId ? '(You)' : ''} ${p.isHost ? '👑' : ''}</td><td class="py-2 text-center">${p.roundScore}</td><td class="py-2 text-center font-bold">${p.score}</td></tr>`).join('')}</tbody></table>`; 
         }
 
+        // function renderGameInfoControls() { 
+        //     if (!gameData) return; 
+        //     const isHost = userId === gameData.hostId; 
+        //     el.gameInfoControls.innerHTML = `<h2 class="text-2xl font-bold text-gray-700 mb-4">Game Info</h2><div><label class="font-semibold">Game ID:</label><div class="flex items-center gap-2 mt-1"><input id="game-id-display-ingame" type="text" readonly class="w-full bg-gray-100 px-3 py-2 border rounded-lg" value="${gameId}"><button id="copy-game-id-btn-ingame" class="bg-gray-200 p-2 rounded-lg"><svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path d="M8 3a1 1 0 011-1h2a1 1 0 110 2H9a1 1 0 01-1-1z"></path><path d="M6 3a2 2 0 00-2 2v11a2 2 0 002 2h8a2 2 0 002-2V5a2 2 0 00-2-2 3 3 0 01-3 3H9a3 3 0 01-3-3z"></path></svg></button></div></div>${isHost ? `<div id="host-controls" class="mt-4 space-y-2"><button id="start-next-round-btn-ingame" class="w-full bg-green-500 text-white font-bold py-2 px-4 rounded-lg"></button><button id="pause-resume-btn-ingame" class="w-full bg-orange-500 text-white font-bold py-2 px-4 rounded-lg"></button><button id="restart-game-btn-ingame" class="w-full bg-red-600 text-white font-bold py-2 px-4 rounded-lg">End & Restart Game</button></div>` : ''}`; 
+        //     if (isHost) { 
+        //         document.getElementById('start-next-round-btn-ingame')?.addEventListener('click', handleStartGame); 
+        //         document.getElementById('pause-resume-btn-ingame')?.addEventListener('click', handlePauseResumeGame); 
+        //         document.getElementById('restart-game-btn-ingame')?.addEventListener('click', handleRestartGame); 
+        //     } 
+        //     document.getElementById('copy-game-id-btn-ingame')?.addEventListener('click', () => handleCopyGameId(gameId));
+        // }
         function renderGameInfoControls() { 
             if (!gameData) return; 
             const isHost = userId === gameData.hostId; 
-            el.gameInfoControls.innerHTML = `<h2 class="text-2xl font-bold text-gray-700 mb-4">Game Info</h2><div><label class="font-semibold">Game ID:</label><div class="flex items-center gap-2 mt-1"><input id="game-id-display-ingame" type="text" readonly class="w-full bg-gray-100 px-3 py-2 border rounded-lg" value="${gameId}"><button id="copy-game-id-btn-ingame" class="bg-gray-200 p-2 rounded-lg"><svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path d="M8 3a1 1 0 011-1h2a1 1 0 110 2H9a1 1 0 01-1-1z"></path><path d="M6 3a2 2 0 00-2 2v11a2 2 0 002 2h8a2 2 0 002-2V5a2 2 0 00-2-2 3 3 0 01-3 3H9a3 3 0 01-3-3z"></path></svg></button></div></div>${isHost ? `<div id="host-controls" class="mt-4 space-y-2"><button id="start-next-round-btn-ingame" class="w-full bg-green-500 text-white font-bold py-2 px-4 rounded-lg"></button><button id="pause-resume-btn-ingame" class="w-full bg-orange-500 text-white font-bold py-2 px-4 rounded-lg"></button><button id="restart-game-btn-ingame" class="w-full bg-red-600 text-white font-bold py-2 px-4 rounded-lg">End & Restart Game</button></div>` : ''}`; 
+            const showSettings = isHost && (gameData.status === 'waiting' || gameData.status === 'scoring');
+
+            el.gameInfoControls.innerHTML = `
+                <h2 class="text-2xl font-bold text-gray-700 mb-4">Game Info</h2>
+                <div>
+                    <label class="font-semibold">Game ID:</label>
+                    <div class="flex items-center gap-2 mt-1">
+                        <input id="game-id-display-ingame" type="text" readonly class="w-full bg-gray-100 px-3 py-2 border rounded-lg" value="${gameId}">
+                        <button id="copy-game-id-btn-ingame" class="bg-gray-200 p-2 rounded-lg"><svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path d="M8 3a1 1 0 011-1h2a1 1 0 110 2H9a1 1 0 01-1-1z"></path><path d="M6 3a2 2 0 00-2 2v11a2 2 0 002 2h8a2 2 0 002-2V5a2 2 0 00-2-2 3 3 0 01-3 3H9a3 3 0 01-3-3z"></path></svg></button>
+                    </div>
+                </div>
+                ${isHost ? `
+                    <div id="host-controls" class="mt-4 space-y-2">
+                        <div id="host-settings" class="${showSettings ? '' : 'hidden'}">
+                            <h3 class="text-xl font-bold text-gray-700 mt-4 mb-2">Next Round Settings</h3>
+                            <div class="grid grid-cols-2 gap-4 mb-4">
+                                <div>
+                                    <label for="timer-setting-ingame" class="font-semibold text-gray-600">Time (s):</label>
+                                    <input type="number" id="timer-setting-ingame" value="${gameData.timerDuration}" class="w-full mt-1 px-3 py-2 border border-gray-300 rounded-lg">
+                                </div>
+                                <div>
+                                    <label for="min-word-length-ingame" class="font-semibold text-gray-600">Min Length:</label>
+                                    <input type="number" id="min-word-length-ingame" value="${gameData.minWordLength}" class="w-full mt-1 px-3 py-2 border border-gray-300 rounded-lg">
+                                </div>
+                            </div>
+                        </div>
+                        <button id="start-next-round-btn-ingame" class="w-full bg-green-500 text-white font-bold py-2 px-4 rounded-lg"></button>
+                        <button id="pause-resume-btn-ingame" class="w-full bg-orange-500 text-white font-bold py-2 px-4 rounded-lg"></button>
+                        <button id="restart-game-btn-ingame" class="w-full bg-red-600 text-white font-bold py-2 px-4 rounded-lg">End & Restart Game</button>
+                    </div>` : ''}
+            `; 
+            
             if (isHost) { 
                 document.getElementById('start-next-round-btn-ingame')?.addEventListener('click', handleStartGame); 
                 document.getElementById('pause-resume-btn-ingame')?.addEventListener('click', handlePauseResumeGame); 
