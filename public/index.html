@@ -453,6 +453,24 @@
                 await joinGame(newGameId); 
             } catch (error) { console.error("Error creating game:", error); }
         }
+
+        async function handleEndOfRoundScoring() {
+            try {
+                // First, run the final, authoritative score calculation.
+                await calculateScores(true);
+                
+                // ONLY after the scores are calculated and saved, update the status.
+                // This is the signal for all clients to open the scoring modal.
+                const gameRef = doc(db, `artifacts/${appId}/public/data/games`, gameId);
+                await updateDoc(gameRef, { status: 'scoring' });
+
+            } catch (error) {
+                console.error("A critical error occurred during the scoring process:", error);
+                // As a fallback, set the status to 'scoring' anyway so the game doesn't get stuck.
+                const gameRef = doc(db, `artifacts/${appId}/public/data/games`, gameId);
+                await updateDoc(gameRef, { status: 'scoring' });
+            }
+        }
         
         function handleJoinGame() { 
             el.joinErrorMsg.classList.add('hidden'); 
@@ -490,18 +508,26 @@
                 gameUnsubscribe = onSnapshot(gameRef, (doc) => { 
                     const oldStatus = gameData?.status;
                     gameData = doc.data(); 
+                    if (gameData) {
+                                // If the host sees the 'calculating' status, it takes over the scoring process.
+                                if (userId === gameData.hostId && gameData.status === 'calculating' && oldStatus !== 'calculating') {
+                                    handleEndOfRoundScoring();
+                                } else {
+                                    // All other players (and the host on other updates) just render the current state.
+                                    renderGame(oldStatus);
+                                }
 
-                    if (gameData) { 
-                        listenForPlayerWords();
-                        renderGame(oldStatus);
-                        if (gameData.status === 'ready-check' && userId === gameData.hostId) {
-                            const allReady = Object.values(gameData.players).every(p => p.isReady);
-                            if (allReady) {
-                                initiateRoundStart();
+                                listenForPlayerWords(); // This should be called on every update to catch new players
+
+                                // The ready-check logic remains the same.
+                                if (gameData.status === 'ready-check' && userId === gameData.hostId) {
+                                    const allReady = Object.values(gameData.players).every(p => p.isReady);
+                                    if (allReady) {
+                                        initiateRoundStart();
+                                    }
+                                }
                             }
-                        }
-                    }
-                });
+                        });
             } catch (error) { 
                 console.error("Error joining game:", error); 
                 el.joinErrorMsg.textContent = "An error occurred while joining the game."; 
@@ -795,8 +821,10 @@
                         await updateDoc(gameRef, { timer: currentTimer - 1 });
                     } else {
                         clearInterval(timerInterval);
-                        await calculateScores(true);
-                        await updateDoc(gameRef, { status: 'scoring' });
+                        // await calculateScores(true);
+                        // await updateDoc(gameRef, { status: 'scoring' });
+                        // Just set the status. The host's listener will handle the calculation.
+                        await updateDoc(gameRef, { status: 'calculating' });
                     }
                 }, 1000);
             }
@@ -806,6 +834,8 @@
                 el.gameStatusDisplay.textContent = `Round ${round}`;
             } else if (status === 'paused') {
                 el.gameStatusDisplay.textContent = `Game Paused`;
+            }else if (status === 'calculating') { // <-- Add this condition
+                el.gameStatusDisplay.textContent = 'Calculating scores...';
             } else if (status === 'scoring') {
                 el.gameStatusDisplay.textContent = `Round ${round} Over! Reviewing scores...`;
             } else if (status === 'waiting' || status === 'ready-check') {
