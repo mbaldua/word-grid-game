@@ -226,25 +226,45 @@
     </div>
 
         <!-- How to Play Modal -->
-    <div id="how-to-play-modal-bg" class="modal-bg fixed inset-0 z-50 flex items-center justify-center hidden">
-        <div id="how-to-play-modal" class="bg-white p-8 rounded-2xl shadow-2xl w-full max-w-md flex flex-col gap-4 relative">
-            <button id="close-how-to-play-btn" class="absolute top-4 right-4 text-2xl font-bold hover:text-red-500">&times;</button>
-            <h2 class="text-3xl font-bold text-center text-gray-800">How to Play</h2>
-            <ul class="space-y-3 list-disc list-inside text-gray-700">
-                <li>Form words using letters from the grid.</li>
-                <li>Letters do not need to be adjacent.</li>
-                <li>Each letter tile can only be used once per word.</li>
-            </ul>
-            <h3 class="text-xl font-bold text-center text-gray-800 mt-4">Controls</h3>
-            <ul class="space-y-2 text-gray-700">
-                <li class="flex items-center gap-4"><span class="font-bold inline-block w-28 text-right">Space Bar</span> - <span>Activate microphone for voice input.</span></li>
-                <li class="flex items-center gap-4"><span class="font-bold inline-block w-28 text-right">Enter</span> - <span>Submit the current word.</span></li>
-                <li class="flex items-center gap-4"><span class="font-bold inline-block w-28 text-right">Backspace</span> - <span>Remove the last selected letter.</span></li>
-                <li class="flex items-center gap-4"><span class="font-bold inline-block w-28 text-right">Mouse Click</span> - <span>Select letters from the grid.</span></li>
-                <li class="flex items-center gap-4"><span class="font-bold inline-block w-28 text-right">Keyboard</span> - <span>Type letters to select them.</span></li>
-            </ul>
+    <!-- How to Play Modal -->
+<div id="how-to-play-modal-bg" class="modal-bg fixed inset-0 z-50 flex items-center justify-center hidden">
+    <div id="how-to-play-modal" class="bg-white p-8 rounded-2xl shadow-2xl w-full max-w-lg flex flex-col gap-4 relative">
+        <button id="close-how-to-play-btn" class="absolute top-3 right-3 text-gray-400 hover:text-red-500 text-3xl">&times;</button>
+        <h2 class="text-3xl font-bold text-center text-gray-800 tracking-tight">How to Play</h2>
+        
+        <div class="mt-2 text-center text-gray-600 leading-relaxed">
+            <p>Form words using the letters on the grid. Letters can be selected in any order and do not need to be adjacent.</p>
+        </div>
+
+        <div class="mt-4">
+            <h3 class="text-xl font-bold text-center text-gray-800 mb-3">Controls</h3>
+            <div class="bg-gray-50 p-4 rounded-lg border border-gray-200">
+                <ul class="space-y-3 text-gray-700">
+                    <li class="flex items-center justify-between">
+                        <span class="text-gray-800">Activate Microphone</span>
+                        <kbd class="px-2 py-1.5 text-xs font-semibold text-gray-800 bg-gray-100 border border-gray-200 rounded-lg">Space Bar</kbd>
+                    </li>
+                    <li class="flex items-center justify-between">
+                        <span class="text-gray-800">Submit Current Word</span>
+                        <kbd class="px-2 py-1.5 text-xs font-semibold text-gray-800 bg-gray-100 border border-gray-200 rounded-lg">Enter</kbd>
+                    </li>
+                    <li class="flex items-center justify-between">
+                        <span class="text-gray-800">Remove Last Letter</span>
+                        <kbd class="px-2 py-1.5 text-xs font-semibold text-gray-800 bg-gray-100 border border-gray-200 rounded-lg">Backspace</kbd>
+                    </li>
+                    <li class="flex items-center justify-between">
+                        <span class="text-gray-800">Select Letters with Mouse</span>
+                        <kbd class="px-2 py-1.5 text-xs font-semibold text-gray-800 bg-gray-100 border border-gray-200 rounded-lg">Mouse Click</kbd>
+                    </li>
+                     <li class="flex items-center justify-between">
+                        <span class="text-gray-800">Select Letters with Keyboard</span>
+                        <kbd class="px-2 py-1.5 text-xs font-semibold text-gray-800 bg-gray-100 border border-gray-200 rounded-lg">A-Z Keys</kbd>
+                    </li>
+                </ul>
+            </div>
         </div>
     </div>
+</div>
 
     <div id="ready-check-modal-bg" class="modal-bg fixed inset-0 z-50 flex items-center justify-center hidden">
         <div class="bg-white p-8 rounded-2xl shadow-2xl w-full max-w-md flex flex-col gap-4">
