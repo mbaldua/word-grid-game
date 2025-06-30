@@ -99,7 +99,7 @@ Transition: After the animation, the status changes to playing, and the round be
 
 D. During a Round (status: 'playing')
 
-Layout: By default, the Left Panel (Info & Leaderboard) is hidden to maximize focus, while the Center Panel (Grid) and Right Panel (Word List) remain visible. Host-specific controls, including the dynamic round settings, are hidden during this phase.
+Layout: All three panels (Left, Center, Right) remain visible on large screens. On smaller screens, the layout may adjust to prioritize the grid. A Help Icon (?) is visible in a corner of the screen.
 
 Center Panel:
 
@@ -107,9 +107,9 @@ The Game Grid is active and filled with letters.
 
 The Timer is counting down at the top.
 
-A "Show/Hide Info" button appears, allowing any player to toggle the visibility of the left panel.
+A Microphone Icon (🎤) is visible next to the timer, allowing for voice input.
 
-Right Panel: The player's word entry components are fully visible and usable. When a new round begins, the 'Current Word' display and 'My Words' list are automatically cleared for all players. Word submissions do not trigger a client-side length validation alert; words of any length are accepted and appear in the user's list, with final validation occurring during the scoring phase.
+Right Panel: The player's word entry components are fully visible and usable. When a new round begins, the 'Current Word' display and 'My Words' list are automatically cleared for all players.
 
 E. End of Round (status: 'scoring')
 
@@ -134,21 +134,71 @@ Host Score Overrides: In an "Edit Mode" (toggled by a checkbox), the host can ap
 Next Round/Restart: The host also has controls to "Start Next Round" or "End & Restart Game."
 
 3. Key UI Components & Interactions
-Detailed Standings & Round History:
+3.1 Detailed Standings & Round History:
 
 Clicking the "Leaderboard 🔎" title opens a full-screen modal showing a round-by-round score history.
 
 The modal header contains clickable round numbers (e.g., 'Round 1', 'Round 2'). Clicking a round number populates the view below with all words submitted by every player during that round. Each word in this view remains clickable to open its dictionary definition.
 
-Comprehensive Dictionary Modal:
+3.2 Comprehensive Dictionary Modal:
 
 When a word is clicked, a new, top-level modal appears, listing all its definitions.
 
-Single-Player Flow:
+3.3 Voice Input (Microphone Feature):
+
+Trigger: Player clicks the microphone icon (🎤) next to the timer or presses the Space Bar during the playing state.
+
+UI State Change:
+
+The Current Word display area changes to show a "Listening..." message. The mic icon can also change its appearance (e.g., pulse or glow) to provide feedback.
+
+Speech Recognition:
+
+The browser's Web Speech API is activated. It will prompt the user for microphone permission on the first use.
+
+The API captures the user's speech.
+
+Transcription & Display:
+
+Once the user stops speaking, the API returns the transcribed text.
+
+The Current Word display is populated with the transcribed word. This display functions as an editable input field, allowing the user to correct any transcription errors with their keyboard before submitting.
+
+Validation & Submission:
+
+Client-Side Check: The application will automatically check if the letters in the transcribed word can be formed from the letters currently available on the grid.
+
+If the letters are available, the corresponding dice on the grid are automatically selected.
+
+If the letters are not available (e.g., the word requires two 'P's but only one is on the grid), the Current Word display is cleared, and a subtle visual error (like a shake or red flash) is shown.
+
+Submission: The player clicks the existing "Submit" button to finalize the word.
+
+3.4 Help & Instructions Modal:
+
+Trigger: Player clicks the Help icon (?) located in a corner of the game view.
+
+UI: A simple, clean modal appears, overlaying the game.
+
+Content: The modal is titled "How to Play" and contains a list of key controls:
+
+Space Bar: Activate microphone for voice input.
+
+Enter: Submit the current word.
+
+Backspace: Remove the last selected letter.
+
+Mouse Click: Select letters from the grid.
+
+Keyboard: Type letters to select them from the grid.
+
+Dismiss: The modal can be closed by clicking an 'X' button or by clicking outside the modal area.
+
+3.5 Single-Player Flow:
 
 The flow is identical for a single player. The app automatically adjusts scoring rules in the background.
 
-Gemini Integration Prompt
+4. Gemini Integration Prompt
 System Prompt:
 You are an expert lexicographer for a word game. Your task is to identify the highest-scoring valid English words that can be constructed from a given set of letters.Constraints:
 

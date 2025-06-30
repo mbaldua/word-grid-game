@@ -1,0 +1,65 @@
+Word Grid Game: Official Rules
+1. Objective
+The goal is to score the most points by finding valid words in the letter grid. In multiplayer games, only unique words earn points. In single-player mode, all valid words count. The player with the highest cumulative score after all rounds wins.
+
+2. Game Setup (The Lobby)
+Creating a Game:
+Any player can create a new game. The creator becomes the Host.
+The Host configures the rules for the match:
+
+Time: Sets the duration of each round in seconds.
+
+Min Length: Sets the minimum number of letters a word must have to be valid.
+
+Grid Size: Determines the dimensions of the letter grid (e.g., 5x5, 7x7).
+
+Word Filters: The Host can add or remove filters to restrict valid words. Default filters are "noun," "verb," and "no plurals." This means only words matching those criteria will score points.
+
+Joining a Game:
+The Host shares the unique Game ID with other players.
+
+Other players enter the Game ID to join the lobby.
+
+3. Gameplay
+Starting a Round:
+The Host starts the game, which generates a random grid of letters and begins the timer for everyone.
+
+Finding Words:
+Players form words by clicking on any available letters on the grid. The letters do not need to be adjacent.
+
+Each letter tile can only be used once per word. (e.g., if there is only one 'P' on the board, you cannot form the word 'APPLE').
+
+Players can use their mouse to click the letter dice or their keyboard to type.
+
+Submitting Words:
+Press the Enter key or click the "Submit" button to add a word to your personal list for the round.
+
+Press the Backspace key or click the "Clear" button to empty the current selection.
+
+4. Scoring & Validation
+Automatic Validation:
+At the end of the round, the game automatically checks submitted words against a dictionary API and the Host's filters.
+
+How Points Are Scored:
+In Multiplayer: Only unique words (found by only one player) that are also valid earn points.
+
+In Single-Player: All valid words earn points.
+
+Point Value: The score for a valid word is equal to its length (e.g., 'GAME' = 4 points).
+
+Zero-Point Words: Words found by multiple players or words deemed invalid by the dictionary score zero.
+
+Host Overrides:
+The host has the final say. In the "Round Over" screen, the host can click on a word's point value to manually toggle its validity. An icon (✍️) marks any word with an overridden score.
+
+Word Lookup (Host Only):
+To help with validation, the host can click on any word's text in the scoring screen or history to view its dictionary definition.
+
+5. Host Controls
+The Host has special controls to manage the game:
+
+Start Game / Start Next Round: Begins the game or the next round.
+
+Pause / Resume: Can pause and resume the timer for all players during a round.
+
+End & Restart Game: Resets all scores and rounds, returning all players to the game lobby.
