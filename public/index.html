@@ -1448,8 +1448,9 @@
         //     }
         // }
         function handleKeyDown(event) {
-            if (event.target.id === 'current-word-input') {
-                if (event.key === 'Enter') {
+            // Prevent typing in the name input from triggering game actions
+            if (event.target.tagName === 'INPUT' || event.target.tagName === 'TEXTAREA') {
+                if (event.target.id === 'current-word-input' && event.key === 'Enter') {
                     event.preventDefault();
                     handleSubmitWord();
                 }
@@ -1458,7 +1459,7 @@
 
             if (gameData?.status !== 'playing') return;
 
-            // New: Trigger mic with the Space bar
+            // Trigger mic with the Space bar
             if (event.code === 'Space') {
                 event.preventDefault();
                 handleMicClick();
@@ -1472,6 +1473,7 @@
                 event.preventDefault();
                 if(currentWord.length > 0){
                     const lastDie = currentWord.pop();
+                    // The 'el' property holds the direct reference to the button element
                     if (lastDie.el) {
                         lastDie.el.classList.remove('selected');
                     }
@@ -1481,14 +1483,31 @@
                 event.preventDefault(); 
                 const letter = event.key.toUpperCase();
                 
-                const availableDie = Array.from(document.querySelectorAll('#game-grid .die:not(.selected)')).find(d => d.textContent === letter);
+                const allDice = Array.from(document.querySelectorAll('#game-grid .die'));
+                let dieToSelect = null;
 
-                if (availableDie) {
-                    const { row, col } = availableDie.dataset;
-                    handleDieClick(availableDie, letter, parseInt(row), parseInt(col));
+                // Loop through every single die on the grid in order
+                for (const die of allDice) {
+                    const row = parseInt(die.dataset.row);
+                    const col = parseInt(die.dataset.col);
+
+                    // Check if this specific die (by its coordinates) is already in our word
+                    const isAlreadySelected = currentWord.some(d => d.row === row && d.col === col);
+
+                    // If the letter matches AND this specific die hasn't been selected yet...
+                    if (die.textContent === letter && !isAlreadySelected) {
+                        dieToSelect = die; // ...we've found our target
+                        break; // Stop searching and select this die
+                    }
+                }
+
+                // If we found an available die, click it
+                if (dieToSelect) {
+                    const { row, col } = dieToSelect.dataset;
+                    handleDieClick(dieToSelect, letter, parseInt(row), parseInt(col));
                 }
             }
-        }
+}
         
         // --- Modal Drag/Resize Utilities ---
         function bringToFront(modal) { highestZ++; modal.style.zIndex = highestZ; }
